@@ -703,16 +703,166 @@ Siga o assistente interativo para configurar a integração de rede entre as dua
 
 # 🚨 Troubleshooting
 
-### Container reiniciando (Loop)
-1. Verifique os logs: `docker logs --tail 50 NOME_CONTAINER`
-2. Geralmente é falta de memória (OOM Kill) ou erro de conexão com banco.
-3. Se for memória, ajuste os limites no arquivo YAML correspondente em `vm/`.
+## Traefik - Erro ao Obter Certificados SSL (AWS)
 
-### "Port is missing" no Traefik
-Certifique-se de que o serviço tem a porta definida nos labels ou no `loadbalancer.server.port`.
+### Sintoma
+Logs do Traefik mostram erros como:
+```
+Unable to obtain ACME certificate for domains [...]: error: 403
+acme: error presenting token: [...] could not find the start of authority
+```
 
-### Erro S3 "ENOTFOUND"
-Verifique se o endpoint do S3 está sem `https://`. O Evolution V2 requer apenas o hostname (ex: `s3.us-east-1.amazonaws.com`).
+### Causa Raiz
+O **Security Group da AWS não possui regras de entrada (Inbound Rules)** configuradas, bloqueando as portas 80 e 443 necessárias para validação ACME do Let's Encrypt.
+
+### Solução Passo a Passo
+
+#### 1. Verificar Security Group (AWS Console)
+1. Acesse: **EC2 > Instances > Sua instância**
+2. Aba **Security** (parte inferior)
+3. Clique no **Security Group** (ex: `n8n-securitygroup`)
+4. Aba **Inbound rules**
+
+#### 2. Adicionar Regras Obrigatórias
+Se a tabela estiver vazia ou sem as regras HTTP/HTTPS, clique em **"Edit inbound rules"** e adicione:
+
+| Type  | Protocol | Port Range | Source    | Description |
+|-------|----------|------------|-----------|-------------|
+| HTTP  | TCP      | 80         | 0.0.0.0/0 | Allow HTTP for ACME validation |
+| HTTPS | TCP      | 443        | 0.0.0.0/0 | Allow HTTPS |
+| SSH   | TCP      | 22         | Seu IP    | SSH Access |
+
+**⚠️ CRÍTICO**: A porta **80** é obrigatória para validação ACME, mesmo que você só use HTTPS depois.
+
+#### 3. Validar Conectividade
+Após salvar as regras, aguarde 30 segundos e teste:
+
+```bash
+# Do seu PC (PowerShell/Terminal):
+curl http://SEU_IP_PUBLICO
+
+# Deve retornar "404 Not Found" (isso é bom! Significa que o Traefik respondeu)
+# Se der timeout, o Security Group ainda está bloqueando
+```
+
+#### 4. Limpar Certificados e Reiniciar Traefik
+```bash
+# Na VM:
+# 1. Parar o Traefik
+docker stack rm traefik
+
+# 2. Aguardar parar completamente
+sleep 10
+
+# 3. Limpar certificados corrompidos
+docker volume rm volume_swarm_certificates
+docker volume create volume_swarm_certificates
+
+# 4. Redeployar
+cd /opt/infra/<SEU_NEGOCIO>
+docker stack deploy -c 04.traefik.yaml traefik
+
+# 5. Acompanhar logs
+docker service logs -f traefik_traefik
+```
+
+#### 5. Verificar Sucesso
+Nos logs, você deve ver:
+```
+✅ "The ACME certificate has been generated"
+✅ "Serving default certificate"
+```
+
+Acesse seus domínios via HTTPS para confirmar os certificados válidos.
+
+### Prevenção
+- Sempre configure o Security Group **antes** de rodar o instalador
+- Use "DNS Only" (nuvem cinza) no Cloudflare durante a primeira geração de certificados
+- Aguarde propagação DNS (2-5 minutos) antes de iniciar o Traefik
+
+---
+
+## Portainer - Tempo Limite Expirado
+
+### Sintoma
+Ao acessar o Portainer pela primeira vez, aparece mensagem de que o tempo para criar senha expirou.
+
+### Solução
+```bash
+# Reiniciar o Portainer
+docker service update --force portainer_portainer
+
+# Aguardar 30 segundos
+sleep 30
+
+# Acessar imediatamente: https://painel.seu-dominio.com
+# Você tem 5 minutos para criar a senha de admin
+```
+
+---
+
+## Evolution API - Redis Disconnected (Logs Vermelhos)
+
+### Sintoma
+Logs do Evolution mostram repetidamente:
+```
+[Redis] [string] redis disconnected
+[Redis] [string] redis connecting
+```
+
+### Diagnóstico
+- ✅ **NORMAL no início**: O Evolution tenta conectar antes do Redis estar pronto
+- ✅ Após 2-5 minutos, deve aparecer `[Redis] [string] redis ready`
+- ❌ **PROBLEMA**: Se continuar após 10 minutos, verifique se o Redis está rodando:
+
+```bash
+docker service ls | grep redis
+docker service logs redis_redis
+```
+
+---
+
+## Container Reiniciando (Loop)
+
+### Diagnóstico
+```bash
+# Ver logs do container
+docker logs --tail 50 NOME_CONTAINER
+
+# Ver motivo da parada (OOM Kill, Exit Code)
+docker inspect NOME_CONTAINER --format='{{.State.Status}} - {{.State.ExitCode}}'
+```
+
+### Causas Comuns
+1. **Falta de memória (OOM Kill)**: Ajuste os limites no arquivo YAML
+2. **Erro de conexão com banco**: Verifique se Postgres/Redis estão rodando
+3. **Variável de ambiente faltando**: Revise o arquivo YAML
+
+---
+
+## Traefik - "Port is missing"
+
+### Solução
+Certifique-se de que o serviço tem a porta definida nos labels:
+```yaml
+deploy:
+  labels:
+    - "traefik.http.services.NOME.loadbalancer.server.port=8080"
+```
+
+---
+
+## Evolution API - Erro S3 "ENOTFOUND"
+
+### Causa
+O endpoint do S3 está com `https://` no início.
+
+### Solução
+O Evolution V2 requer apenas o hostname:
+- ❌ Errado: `https://s3.us-east-1.amazonaws.com`
+- ✅ Correto: `s3.us-east-1.amazonaws.com`
+
+Edite o arquivo `18.evolution_v2.yaml` e remova o protocolo.
 
 ---
 <img width=200px height=200px src="img/5.PNG" alt="Bot logo"></a>
