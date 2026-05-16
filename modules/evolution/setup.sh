@@ -47,7 +47,7 @@ version: "3.7"
 
 services:
   evolution_v2:
-    image: atendai/evolution-api:v2.2.3
+    image: evoapicloud/evolution-api:v2.3.7
     volumes:
       - evolution_instances:/evolution/instances
     networks:
@@ -77,7 +77,7 @@ services:
       - DATABASE_CONNECTION_CLIENT_NAME=evolution_v2
       - DATABASE_SAVE_DATA_INSTANCE=true
       - DATABASE_SAVE_DATA_NEW_MESSAGE=true
-      - DATABASE_SAVE_DATA_MESSAGE_UPDATE=true
+      - DATABASE_SAVE_MESSAGE_UPDATE=true
       - DATABASE_SAVE_DATA_CONTACTS=true
       - DATABASE_SAVE_DATA_CHATS=true
       - DATABASE_SAVE_DATA_LABELS=true
@@ -105,7 +105,7 @@ services:
       - CACHE_REDIS_ENABLED=true
       - CACHE_REDIS_URI=redis://:${REDIS_PASSWORD}@redis:6379/1
       - CACHE_REDIS_PREFIX_KEY=evolution_v2
-      - CACHE_REDIS_SAVE_INSTANCES=true
+      - CACHE_REDIS_SAVE_INSTANCES=false
       - CACHE_LOCAL_ENABLED=false
 ${EVO_S3_BLOCK}
     deploy:
