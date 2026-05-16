@@ -50,10 +50,10 @@ deploy_services() {
             print_warning "Banco de dados 'evolution' já existe ou erro na criação (verifique logs)."
         fi
 
-        if docker exec -i "$POSTGRES_CONTAINER" psql -U postgres -c "CREATE DATABASE chatwoot;" >/dev/null 2>&1; then
-            print_success "Banco de dados 'chatwoot' criado com sucesso!"
+        if docker exec -i "$POSTGRES_CONTAINER" psql -U postgres -c "CREATE DATABASE chatwoot_production;" >/dev/null 2>&1; then
+            print_success "Banco de dados 'chatwoot_production' criado com sucesso!"
         else
-            print_warning "Banco de dados 'chatwoot' já existe ou erro na criação (verifique logs)."
+            print_warning "Banco de dados 'chatwoot_production' já existe ou erro na criação (verifique logs)."
         fi
 
         if [ "$ENABLE_DIFY" = true ]; then
@@ -81,6 +81,15 @@ deploy_services() {
     docker stack deploy --detach=true -c 10.n8n-webhooks.yaml n8n_webhook >/dev/null 2>&1
     print_info "Deploying Evolution V2..."
     docker stack deploy --detach=true -c 18.evolution_v2.yaml evolution_v2 >/dev/null 2>&1
+    print_info "Deploying Chatwoot..."
+    docker stack deploy --detach=true -c 19.chatwoot.yaml chatwoot >/dev/null 2>&1
+    
+    # Aguardar Chatwoot inicializar
+    print_info "Aguardando Chatwoot inicializar (60s)..."
+    sleep 60
+    
+    # Configurar Chatwoot (Migrações e Account)
+    configure_chatwoot
 
     if [ "$ENABLE_DIFY" = true ]; then
         print_info "Realizando deploy do Dify AI..."
@@ -110,6 +119,114 @@ deploy_services() {
     fi
 }
 
+configure_chatwoot() {
+    print_step "CONFIGURANDO CHATWOOT (MIGRAÇÕES E ACCOUNT)"
+    
+    # Encontrar o container do Chatwoot Rails
+    print_info "Localizando container do Chatwoot Rails..."
+    CHATWOOT_CONTAINER=""
+    for i in {1..15}; do
+        CHATWOOT_CONTAINER=$(docker ps -q -f name=chatwoot_chatwoot_rails)
+        if [ -n "$CHATWOOT_CONTAINER" ]; then
+            break
+        fi
+        print_info "Aguardando container inicializar... (tentativa $i/15)"
+        sleep 4
+    done
+    
+    if [ -z "$CHATWOOT_CONTAINER" ]; then
+        print_error "Container do Chatwoot Rails não encontrado!"
+        print_warning "Execute manualmente após o container inicializar:"
+        echo -e "  ${DIM}docker exec -i \$(docker ps -q -f name=chatwoot_rails) -e REDIS_URL=\"redis://:${REDIS_PASSWORD}@redis_redis:6379\" bundle exec rails db:chatwoot_prepare${RESET}"
+        return
+    fi
+    
+    print_success "Container encontrado: $CHATWOOT_CONTAINER"
+    
+    # Executar migrações do banco de dados
+    print_info "Executando migrações do banco de dados (db:chatwoot_prepare)..."
+    if docker exec -i -e REDIS_URL="redis://:${REDIS_PASSWORD}@redis_redis:6379" "$CHATWOOT_CONTAINER" bundle exec rails db:chatwoot_prepare 2>&1 | tee /tmp/chatwoot_migrate.log | grep -q "migrated"; then
+        print_success "Migrações executadas com sucesso!"
+    else
+        print_warning "Erro ao executar migrações. Verifique os logs:"
+        echo -e "  ${DIM}docker service logs chatwoot_chatwoot_rails --tail 50${RESET}"
+        cat /tmp/chatwoot_migrate.log
+        return
+    fi
+    
+    # Verificar se já existe Account
+    print_info "Verificando se Account já existe..."
+    ACCOUNT_COUNT=$(docker exec -i -e REDIS_URL="redis://:${REDIS_PASSWORD}@redis_redis:6379" "$CHATWOOT_CONTAINER" bundle exec rails runner 'puts Account.count' 2>/dev/null | tail -1)
+    
+    if [ "$ACCOUNT_COUNT" -gt 0 ] 2>/dev/null; then
+        print_success "Account já existe (total: $ACCOUNT_COUNT)"
+        
+        # Verificar se usuário existe
+        USER_COUNT=$(docker exec -i -e REDIS_URL="redis://:${REDIS_PASSWORD}@redis_redis:6379" "$CHATWOOT_CONTAINER" bundle exec rails runner 'puts User.count' 2>/dev/null | tail -1)
+        if [ "$USER_COUNT" -gt 0 ] 2>/dev/null; then
+            print_success "Usuário já existe (total: $USER_COUNT)"
+            print_info "Chatwoot já está configurado!"
+        fi
+        return
+    fi
+    
+    # Criar usuário administrador
+    print_info "Criando usuário administrador..."
+    ADMIN_PASSWORD=$(openssl rand -base64 12 | tr -d '/+=' | head -c 16)
+    
+    ADMIN_NAME="${BUSINESS_NAME:-Admin}"
+    ADMIN_NAME="${ADMIN_NAME^}" # Primeira letra maiúscula
+    
+    CREATE_USER_CMD="u = User.new(name: '${ADMIN_NAME}', email: '${CHATWOOT_ADMIN_EMAIL}', password: '${ADMIN_PASSWORD}', password_confirmation: '${ADMIN_PASSWORD}', confirmed_at: Time.now); u.skip_confirmation!; u.save!; puts 'Usuario criado!'"
+    
+    if docker exec -i -e REDIS_URL="redis://:${REDIS_PASSWORD}@redis_redis:6379" "$CHATWOOT_CONTAINER" bundle exec rails runner "$CREATE_USER_CMD" 2>&1 | grep -q "Usuario criado"; then
+        print_success "Usuário administrador criado!"
+    else
+        print_warning "Erro ao criar usuário. Pode já existir."
+    fi
+    
+    # Criar Account e vincular ao usuário
+    print_info "Criando Account e vinculando ao usuário..."
+    ACCOUNT_NAME="${BUSINESS_NAME:-Minha Empresa}"
+    ACCOUNT_NAME="${ACCOUNT_NAME^}" # Primeira letra maiúscula
+    
+    CREATE_ACCOUNT_CMD="a = Account.create!(name: '${ACCOUNT_NAME}'); u = User.first; AccountUser.create!(account: a, user: u, role: :administrator); puts 'Conta criada e usuario vinculado'"
+    
+    if docker exec -i -e REDIS_URL="redis://:${REDIS_PASSWORD}@redis_redis:6379" "$CHATWOOT_CONTAINER" bundle exec rails runner "$CREATE_ACCOUNT_CMD" 2>&1 | grep -q "Conta criada"; then
+        print_success "Account criada e vinculada ao usuário!"
+        
+        # Salvar credenciais de acesso
+        export CHATWOOT_ADMIN_PASSWORD="$ADMIN_PASSWORD"
+        
+        # Tentar enviar email de confirmação (opcional - pode falhar se DNS não configurado)
+        print_info "Tentando enviar email de confirmação..."
+        SEND_EMAIL_CMD="mail = UserMailer.confirmation_instructions(User.last, User.last.confirmation_token); mail.deliver_now; puts 'Email enviado'"
+        
+        if docker exec -i -e REDIS_URL="redis://:${REDIS_PASSWORD}@redis_redis:6379" "$CHATWOOT_CONTAINER" bundle exec rails runner "$SEND_EMAIL_CMD" 2>&1 | grep -q "Email enviado"; then
+            print_success "Email de confirmação enviado para ${CHATWOOT_ADMIN_EMAIL}"
+        else
+            print_warning "Não foi possível enviar email de confirmação."
+            echo -e "  ${YELLOW}⚠️  Verifique se os registros DNS (DKIM, SPF, DMARC) estão configurados no Resend${RESET}"
+            echo -e "  ${DIM}O usuário já está confirmado e pode fazer login normalmente.${RESET}"
+        fi
+        
+        print_success "Chatwoot configurado com sucesso!"
+        echo -e ""
+        echo -e "${BOLD}${GREEN}═══════════════════════════════════════════════════════${RESET}"
+        echo -e "${BOLD}${GREEN}   CREDENCIAIS DE ACESSO - CHATWOOT${RESET}"
+        echo -e "${BOLD}${GREEN}═══════════════════════════════════════════════════════${RESET}"
+        echo -e "  ${WHITE}URL:${RESET} https://${CHATWOOT_DOMAIN}/app/login"
+        echo -e "  ${WHITE}Email:${RESET} ${CHATWOOT_ADMIN_EMAIL}"
+        echo -e "  ${WHITE}Senha:${RESET} ${ADMIN_PASSWORD}"
+        echo -e "${BOLD}${GREEN}═══════════════════════════════════════════════════════${RESET}"
+        echo -e "  ${YELLOW}⚠️  SALVE ESTAS CREDENCIAIS AGORA!${RESET}"
+        echo -e ""
+    else
+        print_warning "Erro ao criar Account. Execute manualmente:"
+        echo -e "  ${DIM}docker exec -i \$(docker ps -q -f name=chatwoot_rails) -e REDIS_URL=\"redis://:${REDIS_PASSWORD}@redis_redis:6379\" bundle exec rails runner 'a = Account.create!(name: \"${ACCOUNT_NAME}\"); AccountUser.create!(account: a, user: User.first, role: :administrator)'${RESET}"
+    fi
+}
+
 print_summary() {
     # Validação dos Serviços
     print_step "VALIDANDO SERVIÇOS (DOCKER SWARM)"
@@ -132,6 +249,7 @@ print_summary() {
     echo -e "   ${ARROW} RabbitMQ Panel: https://${RABBITMQ_DOMAIN}"
     echo -e "   ${ARROW} Evolution API: https://${EVOLUTION_DOMAIN}"
     echo -e "   ${ARROW} Evolution Manager: https://${EVOLUTION_DOMAIN}/manager"
+    echo -e "   ${ARROW} Chatwoot: https://${CHATWOOT_DOMAIN}"
     
     if [ "$ENABLE_DIFY" = true ]; then
         echo -e "   ${ARROW} Dify Web: https://${DIFY_WEB_DOMAIN}"
@@ -148,6 +266,17 @@ print_summary() {
     echo -e "   ${WHITE}RabbitMQ User/Pass:${RESET} ${RABBITMQ_USER} / ${RABBITMQ_PASSWORD}"
     echo -e "   ${WHITE}N8N Encryption Key:${RESET} ${N8N_ENCRYPTION_KEY}"
     echo -e "   ${WHITE}Evolution Global API Key:${RESET} ${EVOLUTION_API_KEY}"
+    echo -e "   ${WHITE}Chatwoot Secret Key:${RESET} ${CHATWOOT_SECRET_KEY}"
+    echo -e "   ${WHITE}Chatwoot Admin Email:${RESET} ${CHATWOOT_ADMIN_EMAIL}"
+    if [ -n "$CHATWOOT_ADMIN_PASSWORD" ]; then
+        echo -e "   ${WHITE}Chatwoot Admin Password:${RESET} ${CHATWOOT_ADMIN_PASSWORD}"
+    fi
+    echo ""
+    echo -e "${BOLD}${YELLOW}📧 CONFIGURAÇÃO RESEND (CHATWOOT):${RESET}"
+    echo -e "   ${YELLOW}⚠️  IMPORTANTE: Configure os registros DNS no Resend:${RESET}"
+    echo -e "   ${ARROW} Acesse: https://resend.com/domains"
+    echo -e "   ${ARROW} Configure DKIM, SPF e DMARC para o domínio: ${CHATWOOT_ADMIN_EMAIL#*@}"
+    echo -e "   ${DIM}Sem essa configuração, os emails do Chatwoot não serão entregues!${RESET}"
     
     if [ "$ENABLE_DIFY" = true ]; then
         echo -e "   ${WHITE}Dify Secret Key:${RESET} ${DIFY_SECRET_KEY}"
@@ -155,5 +284,11 @@ print_summary() {
     else
         echo -e "${DIM}Dify não foi instalado.${RESET}"
     fi
+    echo ""
+    echo -e "${BOLD}${CYAN}📋 PRÓXIMOS PASSOS - CHATWOOT:${RESET}"
+    echo -e "   ${ARROW} 1. Acesse https://${CHATWOOT_DOMAIN} e faça login com as credenciais acima"
+    echo -e "   ${ARROW} 2. Configure seu primeiro Inbox em Settings → Inboxes → Add Inbox"
+    echo -e "   ${ARROW} 3. (Opcional) Reabilite o healthcheck no arquivo 19.chatwoot.yaml após validar que tudo funciona"
+    echo -e "   ${DIM}Nota: As migrações e a Account já foram criadas automaticamente${RESET}"
     echo ""
 }

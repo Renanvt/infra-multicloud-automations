@@ -10,8 +10,8 @@
  <img width=200px height=200px src="https://i.imgur.com/FxL5qM0.jpg" alt="Bot logo"></a>
 </p>
 
-<h2 align="center">INFRAESTRUTURA ALOB EXPRESS (MULTI-CLOUD) v2.0.1</h2>
-<h3 align="center">AWS & Google Cloud | Docker Swarm | N8N | Traefik | Portainer | Evolution API | Dify AI</h3>
+<h2 align="center">INFRAESTRUTURA ALOB EXPRESS (MULTI-CLOUD) v2.1.0</h2>
+<h3 align="center">AWS & Google Cloud | Docker Swarm | N8N | Traefik | Portainer | Evolution API | Chatwoot | Dify AI</h3>
 
 <div align="center">
 
@@ -291,6 +291,7 @@ Configure seus apontamentos DNS no Cloudflare apontando para o **IP Público** d
 | **CNAME** | `painel` | `automations.meu-dominio.com` | Portainer |
 | **CNAME** | `n8n` | `automations.meu-dominio.com` | N8N Editor |
 | **CNAME** | `evolution` | `automations.meu-dominio.com` | Evolution API |
+| **CNAME** | `chatwoot` | `automations.meu-dominio.com` | Chatwoot |
 | **CNAME** | `dify` | `automations.meu-dominio.com` | Dify Web |
 | **CNAME** | `api` | `automations.meu-dominio.com` | Dify API |
 
@@ -301,6 +302,55 @@ O N8N precisa que o banco de dados seja criado manualmente no primeiro uso (se o
 2. Vá em **Containers** > Encontre o `postgres`.
 3. Clique no ícone **>_ Console** > **Connect**.
 4. Execute: `psql -U postgres -c "CREATE DATABASE n8n;"`
+
+## 💬 Configurar Chatwoot
+
+O Chatwoot é uma plataforma de atendimento ao cliente open-source que se integra perfeitamente com a Evolution API.
+
+### Pré-requisitos
+1. **Configurar DNS no Resend** (OBRIGATÓRIO):
+   - Acesse: https://resend.com/domains
+   - Configure os registros DKIM, SPF e DMARC para o domínio do seu email
+   - Sem essa configuração, os emails do Chatwoot não serão entregues!
+
+### Configuração Automática
+
+O script de instalação executa automaticamente:
+- ✅ Criação do banco de dados `chatwoot_production`
+- ✅ Configuração de permissões do diretório de storage (1000:1000)
+- ✅ Execução das migrações (`db:chatwoot_prepare`)
+- ✅ Criação do usuário administrador com senha gerada
+- ✅ Criação da Account e vinculação ao usuário
+- ✅ Envio de email de confirmação (se DNS configurado corretamente)
+
+### Primeiro Acesso
+
+1. **Localizar Credenciais**: As credenciais foram exibidas no final da instalação
+   ```
+   Chatwoot Admin Email: seu-email@dominio.com
+   Chatwoot Admin Password: [senha gerada]
+   ```
+
+2. **Fazer Login**:
+   - Acesse: `https://chatwoot.seu-dominio.com/app/login`
+   - Use as credenciais fornecidas
+
+3. **Configurar Empresa**:
+   - Vá em **Settings → Account Settings**
+   - Configure nome, logo e preferências
+   - Crie seu primeiro **Inbox** em **Settings → Inboxes → Add Inbox**
+
+### Integração com Evolution API
+
+O Chatwoot já está pré-configurado para se integrar com a Evolution API. Para conectar:
+
+1. No Chatwoot: **Settings** → **Inboxes** → **Add Inbox** → **API**
+2. Na Evolution API, use o endpoint:
+   ```bash
+   POST https://evolution.seu-dominio.com/chatwoot/set/{instance}
+   ```
+
+**Documentação Completa**: Consulte [docs/CHATWOOT-SETUP.md](docs/CHATWOOT-SETUP.md) para instruções detalhadas.
 
 ## 🛡️ Configurar CORS (para Evolution API)
 *Já coberto na seção [Preparação da Nuvem](#1-criar-bucket-s3-para-backups-e-evolution-api).*
@@ -431,6 +481,7 @@ Se você optou por criar um **Usuário IAM Dedicado** (em vez de usar a Bucket P
 ### 3. O que é salvo?
 O script `backup_to_s3.sh` realiza o backup de todos os componentes críticos:
 *   **N8N**: Todos os fluxos, credenciais e histórico (via Dump do Postgres).
+*   **Chatwoot**: Conversas, contatos e configurações (via Dump do Postgres + Volume de storage).
 *   **Dify**: Base de conhecimento (Vector Store), fluxos e configurações (via Dump do Postgres + PgVector).
 *   **Evolution API**: Instâncias e sessões (via Volume `evolution_v2_data`).
 *   **Infra**: Certificados SSL (Traefik) e dados do Portainer.
@@ -867,4 +918,4 @@ Edite o arquivo `18.evolution_v2.yaml` e remova o protocolo.
 ---
 <img width=200px height=200px src="img/5.PNG" alt="Bot logo"></a>
 
-**Versão**: 2.0.0 | **Atualizado**: Janeiro 2026
+**Versão**: 2.1.0 | **Atualizado**: Janeiro 2026 | **Novo**: Chatwoot integrado

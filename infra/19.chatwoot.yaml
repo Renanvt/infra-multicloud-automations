@@ -1,0 +1,187 @@
+version: "3.7"
+
+services:
+
+  # ─── Rails (API + Frontend) ───────────────────────────────────────────────
+  chatwoot_rails:
+    image: chatwoot/chatwoot:v3.8.0
+    hostname: "{{.Service.Name}}.{{.Task.Slot}}"
+    entrypoint: docker/entrypoints/rails.sh
+    command: ["bundle", "exec", "rails", "s", "-p", "3000", "-b", "0.0.0.0"]
+
+    environment:
+      NODE_ENV: production
+      RAILS_ENV: production
+      INSTALLATION_ENV: docker
+
+      # ── Banco de Dados (aponta para serviço postgres existente) ───────────
+      POSTGRES_HOST: postgres_postgres          # nome do serviço postgres no swarm
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: chatwoot_production          # banco criado manualmente (ver README)
+      POSTGRES_USERNAME: postgres
+      POSTGRES_PASSWORD: SUA_SENHA_POSTGRES_AQUI
+
+      # ── Redis (aponta para serviço redis existente) ───────────────────────
+      REDIS_URL: "redis://:SUA_SENHA_REDIS_AQUI@redis_redis:6379"
+
+      # ── Segurança ─────────────────────────────────────────────────────────
+      # Gere com: openssl rand -hex 64
+      # IMPORTANTE: deve ser 100% alfanumérico (hex), sem caracteres especiais
+      SECRET_KEY_BASE: GERE_COM_OPENSSL_RAND_HEX_64
+
+      # ── App ───────────────────────────────────────────────────────────────
+      FRONTEND_URL: https://chatwoot.seudominio.com.br
+
+      # ── Email (SMTP via Resend) ────────────────────────────────────────────
+      MAILER_SENDER_EMAIL: contato@seudominio.com.br
+      SMTP_ADDRESS: smtp.resend.com
+      SMTP_PORT: "587"
+      SMTP_USERNAME: resend
+      SMTP_PASSWORD: SUA_API_KEY_RESEND_AQUI    # começa com re_
+      SMTP_AUTHENTICATION: plain
+      SMTP_ENABLE_STARTTLS_AUTO: "true"
+      SMTP_SSL: "false"
+
+      # ── Storage ───────────────────────────────────────────────────────────
+      ACTIVE_STORAGE_SERVICE: local
+      ENABLE_ACCOUNT_SIGNUP: "false"
+      RAILS_LOG_TO_STDOUT: "true"
+
+    volumes:
+      - chatwoot_storage:/app/storage
+
+    networks:
+      - network_swarm_public
+
+    deploy:
+      mode: replicated
+      replicas: 1
+
+      placement:
+        constraints:
+          - node.role == manager
+
+      resources:
+        reservations:
+          cpus: "0.25"
+          memory: 512M
+        limits:
+          cpus: "2.0"
+          memory: 2048M
+
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+        window: 120s
+
+      update_config:
+        parallelism: 1
+        delay: 30s
+        order: stop-first
+        failure_action: rollback
+
+      labels:
+        traefik.enable: "true"
+        traefik.swarm.network: "network_swarm_public"
+        traefik.http.routers.chatwoot.rule: "Host(`chatwoot.seudominio.com.br`)"
+        traefik.http.routers.chatwoot.entrypoints: "websecure"
+        traefik.http.routers.chatwoot.priority: "1"
+        traefik.http.routers.chatwoot.tls.certresolver: "letsencryptresolver"
+        traefik.http.routers.chatwoot.service: "chatwoot_rails"
+        traefik.http.services.chatwoot_rails.loadbalancer.server.port: "3000"
+        traefik.http.services.chatwoot_rails.loadbalancer.passHostHeader: "true"
+
+    # healthcheck desabilitado durante primeiro deploy (ver README — passo 4)
+    # Reabilite após rodar db:chatwoot_prepare e criar a Account
+    # healthcheck:
+    #   test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3000/auth/sign_in >/dev/null || exit 1"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 5
+    #   start_period: 120s
+
+  # ─── Sidekiq (Background Jobs) ────────────────────────────────────────────
+  chatwoot_sidekiq:
+    image: chatwoot/chatwoot:v3.8.0
+    hostname: "{{.Service.Name}}.{{.Task.Slot}}"
+    command: ["bundle", "exec", "sidekiq", "-C", "config/sidekiq.yml"]
+
+    environment:
+      NODE_ENV: production
+      RAILS_ENV: production
+      INSTALLATION_ENV: docker
+
+      POSTGRES_HOST: postgres_postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: chatwoot_production
+      POSTGRES_USERNAME: postgres
+      POSTGRES_PASSWORD: SUA_SENHA_POSTGRES_AQUI
+
+      REDIS_URL: "redis://:SUA_SENHA_REDIS_AQUI@redis_redis:6379"
+
+      SECRET_KEY_BASE: GERE_COM_OPENSSL_RAND_HEX_64
+
+      FRONTEND_URL: https://chatwoot.seudominio.com.br
+
+      MAILER_SENDER_EMAIL: contato@seudominio.com.br
+      SMTP_ADDRESS: smtp.resend.com
+      SMTP_PORT: "587"
+      SMTP_USERNAME: resend
+      SMTP_PASSWORD: SUA_API_KEY_RESEND_AQUI
+      SMTP_AUTHENTICATION: plain
+      SMTP_ENABLE_STARTTLS_AUTO: "true"
+      SMTP_SSL: "false"
+
+      ACTIVE_STORAGE_SERVICE: local
+      RAILS_LOG_TO_STDOUT: "true"
+
+    volumes:
+      - chatwoot_storage:/app/storage
+
+    networks:
+      - network_swarm_public
+
+    deploy:
+      mode: replicated
+      replicas: 1
+
+      placement:
+        constraints:
+          - node.role == manager
+
+      resources:
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+        limits:
+          cpus: "1.0"
+          memory: 1024M
+
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+        window: 120s
+
+      update_config:
+        parallelism: 1
+        delay: 30s
+        order: stop-first
+        failure_action: rollback
+
+      labels:
+        traefik.enable: "false"
+
+volumes:
+  chatwoot_storage:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/infra/SEU_PROJETO/chatwoot/storage
+
+networks:
+  network_swarm_public:
+    external: true
+    name: network_swarm_public

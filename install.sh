@@ -61,6 +61,7 @@ MODULES=(
     "modules/n8n/setup.sh"
     "modules/evolution/setup.sh"
     "modules/dify/setup.sh"
+    "modules/chatwoot/setup.sh"
 )
 
 for module in "${MODULES[@]}"; do
@@ -138,6 +139,7 @@ setup_core_vars
 setup_n8n_vars
 setup_evolution_vars
 setup_dify_vars
+setup_chatwoot_vars
 
 # 7. Resource Definition
 print_banner
@@ -151,6 +153,7 @@ generate_core_yamls
 generate_n8n_yamls
 generate_evolution_yaml
 generate_dify_yamls
+generate_chatwoot_yaml
 
 print_success "Arquivos YAML gerados com sucesso!"
 
