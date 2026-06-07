@@ -62,6 +62,7 @@ MODULES=(
     "modules/evolution/setup.sh"
     "modules/dify/setup.sh"
     "modules/chatwoot/setup.sh"
+    "modules/openclaw/setup.sh"
 )
 
 for module in "${MODULES[@]}"; do
@@ -118,6 +119,11 @@ check_recovery
 
 log_message "INFO" "Iniciando setup para o negócio: $BUSINESS_NAME"
 
+# Flags de módulos opcionais — inicializados como false até o usuário escolher
+ENABLE_DIFY=false
+ENABLE_OPENCLAW=false
+export ENABLE_DIFY ENABLE_OPENCLAW
+
 print_step "PREPARANDO DIRETÓRIO DE INSTALAÇÃO"
 if [ ! -d "$INSTALL_DIR" ]; then
     print_info "Criando diretório: $INSTALL_DIR"
@@ -138,7 +144,8 @@ verify_dns
 setup_core_vars
 setup_n8n_vars
 setup_evolution_vars
-setup_dify_vars
+setup_dify_vars      # Menu: escolhe Dify, OpenClaw ou nenhum
+setup_openclaw_vars  # Coleta inputs do OpenClaw (skip se ENABLE_OPENCLAW != true)
 setup_chatwoot_vars
 
 # 7. Resource Definition
@@ -153,6 +160,7 @@ generate_core_yamls
 generate_n8n_yamls
 generate_evolution_yaml
 generate_dify_yamls
+generate_openclaw_yaml  # Gera 21.openclaw.yaml (skip se ENABLE_OPENCLAW != true)
 generate_chatwoot_yaml
 
 print_success "Arquivos YAML gerados com sucesso!"

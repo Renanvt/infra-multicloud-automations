@@ -1,0 +1,83 @@
+version: "3.7"
+
+services:
+  openclaw_gateway:
+    image: ghcr.io/openclaw/openclaw:2026.5.7
+    hostname: "{{.Service.Name}}.{{.Task.Slot}}"
+
+    environment:
+      NODE_ENV: production
+      OPENCLAW_CONFIG: /home/node/.openclaw/openclaw.json
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
+      OPENCLAW_HOOKS_TOKEN: ${OPENCLAW_HOOKS_TOKEN}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
+      GOPLACES_API_KEY: ${GOPLACES_API_KEY:-}
+      NOTION_API_KEY: ${NOTION_API_KEY:-}
+      SUPABASE_ACCESS_TOKEN: ${SUPABASE_ACCESS_TOKEN:-}
+      FIGMA_API_KEY: ${FIGMA_API_KEY:-}
+      GITHUB_PERSONAL_ACCESS_TOKEN: ${GITHUB_PERSONAL_ACCESS_TOKEN:-}
+      N8N_BEARER_TOKEN: ${N8N_BEARER_TOKEN:-}
+
+      OPENCLAW_DISABLE_BONJOUR: "1"
+      OPENCLAW_GATEWAY_BIND: lan
+
+    volumes:
+      - /opt/infra/alobexpress/openclaw:/home/node/.openclaw
+
+    tmpfs:
+      - /tmp:size=1g
+
+    networks:
+      - network_swarm_public
+
+    deploy:
+      mode: replicated
+      replicas: 1
+
+      placement:
+        constraints:
+          - node.role == manager
+
+      resources:
+        reservations:
+          cpus: "0.25"
+          memory: 512M
+        limits:
+          cpus: "2.0"
+          memory: 6144M
+
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+        window: 120s
+
+      update_config:
+        parallelism: 1
+        delay: 30s
+        order: stop-first
+        failure_action: rollback
+
+      labels:
+        traefik.enable: "true"
+        traefik.swarm.network: "network_swarm_public"
+        traefik.http.routers.openclaw.rule: "Host(`openclaw.alobexpress.com.br`)"
+        traefik.http.routers.openclaw.entrypoints: "websecure"
+        traefik.http.routers.openclaw.priority: "1"
+        traefik.http.routers.openclaw.tls.certresolver: "letsencryptresolver"
+        traefik.http.routers.openclaw.service: "openclaw_gateway"
+        traefik.http.services.openclaw_gateway.loadbalancer.server.port: "18789"
+        traefik.http.services.openclaw_gateway.loadbalancer.passHostHeader: "true"
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:18789/healthz >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+networks:
+  network_swarm_public:
+    external: true
+    name: network_swarm_public

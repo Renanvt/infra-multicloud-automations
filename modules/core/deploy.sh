@@ -239,7 +239,10 @@ deploy_services() {
     docker stack deploy --detach=true -c 18.evolution_v2.yaml evolution_v2 >/dev/null 2>&1
     print_info "Deploying Chatwoot..."
     docker stack deploy --detach=true -c 19.chatwoot.yaml chatwoot >/dev/null 2>&1
-    
+
+    # Deploy OpenClaw (se escolhido no lugar do Dify)
+    deploy_openclaw
+
     # Aguardar Chatwoot inicializar
     print_info "Aguardando Chatwoot inicializar (60s)..."
     sleep 60
@@ -412,6 +415,10 @@ print_summary() {
         echo -e "   ${ARROW} Dify API: https://${DIFY_API_DOMAIN}"
     fi
 
+    if [ "$ENABLE_OPENCLAW" = true ]; then
+        echo -e "   ${ARROW} OpenClaw: https://${OPENCLAW_DOMAIN}"
+    fi
+
     echo ""
     echo -e "${YELLOW}⚠️  ATENÇÃO: Você tem 5 MINUTOS para criar a senha de admin no Portainer!${RESET}"
     echo -e "   Acesse agora: https://${PORTAINER_DOMAIN}"
@@ -440,6 +447,10 @@ print_summary() {
     else
         echo -e "${DIM}Dify não foi instalado.${RESET}"
     fi
+
+    # Credenciais OpenClaw
+    print_openclaw_summary
+
     echo ""
     echo -e "${BOLD}${CYAN}📋 PRÓXIMOS PASSOS - CHATWOOT:${RESET}"
     echo -e "   ${ARROW} 1. Acesse https://${CHATWOOT_DOMAIN} e faça login com as credenciais acima"

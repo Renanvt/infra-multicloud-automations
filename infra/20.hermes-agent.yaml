@@ -1,0 +1,133 @@
+version: "3.7"
+
+services:
+
+  # ─── Gateway (API + Agent) ────────────────────────────────────────────────
+  hermes_gateway:
+    image: nousresearch/hermes-agent:latest
+    hostname: "{{.Service.Name}}.{{.Task.Slot}}"
+    command: gateway run
+
+    environment:
+      HERMES_HOME: /opt/data
+
+    volumes:
+      - /opt/infra/alobexpress/hermes:/opt/data
+
+    tmpfs:
+      - /tmp:size=512m
+
+    shm_size: 1g
+
+    networks:
+      - network_swarm_public
+
+    deploy:
+      mode: replicated
+      replicas: 1
+
+      placement:
+        constraints:
+          - node.role == manager
+
+      resources:
+        reservations:
+          cpus: "0.25"
+          memory: 512M
+        limits:
+          cpus: "2.0"
+          memory: 4096M
+
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+        window: 120s
+
+      update_config:
+        parallelism: 1
+        delay: 30s
+        order: stop-first
+        failure_action: rollback
+
+      labels:
+        traefik.enable: "true"
+        traefik.swarm.network: "network_swarm_public"
+
+        # Gateway API
+        traefik.http.routers.hermes.rule: "Host(`hermes.alobexpress.com.br`)"
+        traefik.http.routers.hermes.entrypoints: "websecure"
+        traefik.http.routers.hermes.priority: "1"
+        traefik.http.routers.hermes.tls.certresolver: "letsencryptresolver"
+        traefik.http.routers.hermes.service: "hermes_gateway"
+        traefik.http.services.hermes_gateway.loadbalancer.server.port: "8642"
+        traefik.http.services.hermes_gateway.loadbalancer.passHostHeader: "true"
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8642/health >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ─── Dashboard (Web UI) ───────────────────────────────────────────────────
+  hermes_dashboard:
+    image: nousresearch/hermes-agent:latest
+    hostname: "{{.Service.Name}}.{{.Task.Slot}}"
+    command: dashboard --host 0.0.0.0
+
+    environment:
+      HERMES_HOME: /opt/data
+      GATEWAY_HEALTH_URL: http://hermes_gateway:8642
+
+    volumes:
+      - /opt/infra/alobexpress/hermes:/opt/data
+
+    networks:
+      - network_swarm_public
+
+    deploy:
+      mode: replicated
+      replicas: 1
+
+      placement:
+        constraints:
+          - node.role == manager
+
+      resources:
+        reservations:
+          cpus: "0.10"
+          memory: 128M
+        limits:
+          cpus: "0.50"
+          memory: 512M
+
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+        window: 120s
+
+      update_config:
+        parallelism: 1
+        delay: 30s
+        order: stop-first
+        failure_action: rollback
+
+      labels:
+        traefik.enable: "true"
+        traefik.swarm.network: "network_swarm_public"
+
+        # Dashboard UI
+        traefik.http.routers.hermes-dashboard.rule: "Host(`hermes-dashboard.alobexpress.com.br`)"
+        traefik.http.routers.hermes-dashboard.entrypoints: "websecure"
+        traefik.http.routers.hermes-dashboard.priority: "1"
+        traefik.http.routers.hermes-dashboard.tls.certresolver: "letsencryptresolver"
+        traefik.http.routers.hermes-dashboard.service: "hermes_dashboard"
+        traefik.http.services.hermes_dashboard.loadbalancer.server.port: "9119"
+        traefik.http.services.hermes_dashboard.loadbalancer.passHostHeader: "true"
+
+networks:
+  network_swarm_public:
+    external: true
+    name: network_swarm_public

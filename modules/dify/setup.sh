@@ -2,32 +2,55 @@
 
 setup_dify_vars() {
     print_banner
-    print_step "CONFIGURAÇÕES DIFY / AMAZON S3"
-    echo -e "   ${YELLOW}O Dify requer MÍNIMO de 2 vCPU e 2GB RAM adicionais.${RESET}"
-    echo -e "   ${YELLOW}Considerando N8N, Evolution, Postgres, Redis e RabbitMQ, sua VM deve ter:${RESET}"
-    echo -e "   ${BOLD}➜ Recomendado: 4 vCPU e 8GB RAM (ou mais)${RESET}"
-    echo -e "   ${DIM}Se sua VM tiver menos recursos, os serviços podem falhar ou travar.${RESET}"
-    
-    # Check de requisitos
-    # Garantir que variáveis tenham valor numérico
-    : "${TOTAL_RAM_MB:=0}"
-    : "${TOTAL_CPU_CORES:=0}"
+    print_step "MÓDULO DE IA — DIFY ou OPENCLAW"
 
-    if [ "$TOTAL_RAM_MB" -lt 3800 ]; then
-        print_warning "Sua VM tem apenas ${TOTAL_RAM_MB}MB RAM. Dify pode ficar instável."
-        read -p "Deseja continuar mesmo assim? (s/n): " FORCE_DIFY < /dev/tty || true
-        if [[ ! "$FORCE_DIFY" =~ ^(s|S|sim|SIM)$ ]]; then
-            ENABLE_DIFY=false
+    echo -e ""
+    echo -e "   ${BOLD}Escolha o módulo de IA a instalar:${RESET}"
+    echo -e ""
+    echo -e "   ${CYAN}[1] Dify AI${RESET}     — Plataforma LLM self-hosted, RAG, agentes e workflows"
+    echo -e "        ${DIM}Requer: 4 vCPU / 8GB RAM | 6+ serviços Docker${RESET}"
+    echo -e ""
+    echo -e "   ${CYAN}[2] OpenClaw${RESET}   — Agente de IA conversacional via Telegram/Dashboard"
+    echo -e "        ${DIM}Requer: 0.25 vCPU / 512MB RAM | 1 serviço Docker${RESET}"
+    echo -e ""
+    echo -e "   ${CYAN}[3] Nenhum${RESET}     — Pular instalação de IA"
+    echo -e ""
+
+    while true; do
+        read -p "$(echo -e "${GREEN}Opção (1/2/3): ${RESET}")" AI_CHOICE < /dev/tty || continue
+        case "$AI_CHOICE" in
+            1) ENABLE_DIFY=true;  ENABLE_OPENCLAW=false; break ;;
+            2) ENABLE_DIFY=false; ENABLE_OPENCLAW=true;  break ;;
+            3) ENABLE_DIFY=false; ENABLE_OPENCLAW=false; break ;;
+            *) print_error "Opção inválida. Escolha 1, 2 ou 3." ;;
+        esac
+    done
+
+    export ENABLE_DIFY ENABLE_OPENCLAW
+
+    # ---- Bloco Dify ----
+    if [ "$ENABLE_DIFY" = true ]; then
+        print_banner
+        print_step "CONFIGURAÇÕES DIFY / AMAZON S3"
+        echo -e "   ${YELLOW}O Dify requer MÍNIMO de 2 vCPU e 2GB RAM adicionais.${RESET}"
+        echo -e "   ${YELLOW}Considerando N8N, Evolution, Postgres, Redis e RabbitMQ, sua VM deve ter:${RESET}"
+        echo -e "   ${BOLD}➜ Recomendado: 4 vCPU e 8GB RAM (ou mais)${RESET}"
+        echo -e "   ${DIM}Se sua VM tiver menos recursos, os serviços podem falhar ou travar.${RESET}"
+
+        : "${TOTAL_RAM_MB:=0}"
+        : "${TOTAL_CPU_CORES:=0}"
+
+        if [ "$TOTAL_RAM_MB" -lt 3800 ]; then
+            print_warning "Sua VM tem apenas ${TOTAL_RAM_MB}MB RAM. Dify pode ficar instável."
+            read -p "Deseja continuar mesmo assim? (s/n): " FORCE_DIFY < /dev/tty || true
+            if [[ ! "$FORCE_DIFY" =~ ^(s|S|sim|SIM)$ ]]; then
+                print_warning "Dify cancelado. Retornando ao menu de IA..."
+                ENABLE_DIFY=false
+                export ENABLE_DIFY
+                return
+            fi
         else
-            ENABLE_DIFY=true
-        fi
-    else
-        echo -e "${GREEN}✅ Sua VM (${TOTAL_RAM_MB}MB RAM / ${TOTAL_CPU_CORES} vCPU) suporta o Dify perfeitamente.${RESET}"
-        read -p "Deseja instalar o Dify AI? (s/n): " INSTALL_DIFY_OPT < /dev/tty || true
-        if [[ "$INSTALL_DIFY_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
-            ENABLE_DIFY=true
-        else
-            ENABLE_DIFY=false
+            echo -e "${GREEN}✅ Sua VM (${TOTAL_RAM_MB}MB RAM / ${TOTAL_CPU_CORES} vCPU) suporta o Dify perfeitamente.${RESET}"
         fi
     fi
 
