@@ -1,8 +1,157 @@
 #!/bin/bash
 
+build_n8n_custom_image() {
+    local N8N_VERSION="2.0.2"
+    local IMAGE_TAG="alobexpress/n8n-custom:${N8N_VERSION}"
+    local DOCKERFILE_DIR="/opt/alobexpress/n8n-custom"
+
+    print_step "BUILD — IMAGEM CUSTOMIZADA DO N8N (FFmpeg + Extras)"
+
+    # Criar pasta com permissões corretas
+    print_info "Criando diretório ${DOCKERFILE_DIR}..."
+    mkdir -p "${DOCKERFILE_DIR}"
+    chmod 755 "${DOCKERFILE_DIR}"
+
+    # Escrever Dockerfile no servidor
+    print_info "Gravando Dockerfile em ${DOCKERFILE_DIR}/Dockerfile..."
+    cat > "${DOCKERFILE_DIR}/Dockerfile" <<'DOCKERFILE'
+FROM n8nio/n8n:2.0.2
+
+USER root
+
+# ffmpeg        — processamento de áudio/vídeo
+# imagemagick   — manipulação de imagens
+# ghostscript   — leitura e conversão de PDFs
+# python3       — scripts Python nos nodes Code
+# py3-pip       — gerenciador de pacotes Python
+RUN apk add --no-cache \
+    ffmpeg \
+    imagemagick \
+    ghostscript \
+    python3 \
+    py3-pip
+
+USER node
+DOCKERFILE
+
+    # Build da imagem
+    print_info "Iniciando build de '${IMAGE_TAG}' (pode levar alguns minutos)..."
+    if docker build -t "${IMAGE_TAG}" "${DOCKERFILE_DIR}"; then
+        print_success "Imagem '${IMAGE_TAG}' criada com sucesso!"
+    else
+        print_error "Falha no build da imagem n8n customizada. Verifique os logs acima."
+        exit 1
+    fi
+
+    # Verificar FFmpeg dentro da imagem recém-criada
+    print_info "Verificando FFmpeg na imagem recém-criada..."
+    FFMPEG_VER=$(docker run --rm "${IMAGE_TAG}" ffmpeg -version 2>&1 | head -1)
+    if echo "${FFMPEG_VER}" | grep -q "ffmpeg version"; then
+        print_success "FFmpeg OK: ${FFMPEG_VER}"
+    else
+        print_error "FFmpeg não encontrado na imagem. Verifique o Dockerfile."
+        exit 1
+    fi
+}
+
+install_n8n_custom_nodes() {
+    print_step "INSTALANDO CUSTOM NODES DO N8N"
+
+    # Aguardar editor estar disponível
+    print_info "Aguardando n8n Editor inicializar (30s)..."
+    sleep 30
+
+    N8N_CONTAINER=""
+    for i in {1..15}; do
+        N8N_CONTAINER=$(docker ps -q -f name=n8n_editor_n8n_editor)
+        if [ -n "$N8N_CONTAINER" ]; then
+            break
+        fi
+        print_info "Aguardando container do n8n Editor... (tentativa $i/15)"
+        sleep 4
+    done
+
+    if [ -z "$N8N_CONTAINER" ]; then
+        print_error "Container do n8n Editor não encontrado. Instale os custom nodes manualmente via Settings → Community Nodes."
+        return
+    fi
+
+    print_success "Container encontrado: ${N8N_CONTAINER}"
+
+    # Garantir que o diretório de nodes existe
+    docker exec -u node "$N8N_CONTAINER" /bin/sh -c "mkdir -p /home/node/.n8n/nodes" >/dev/null 2>&1
+
+    install_node() {
+        local PACKAGE="$1"
+        local LABEL="$2"
+        print_info "Instalando ${LABEL} (${PACKAGE})..."
+        if docker exec -u node "$N8N_CONTAINER" \
+            /bin/sh -c "cd /home/node/.n8n/nodes && npm install ${PACKAGE}" >/dev/null 2>&1; then
+            print_success "${LABEL} instalado!"
+        else
+            print_warning "Falha ao instalar ${LABEL}. Instale manualmente via Settings → Community Nodes → ${PACKAGE}"
+        fi
+    }
+
+    install_node "n8n-nodes-evolution-api-english"  "Evolution API (WhatsApp)"
+    install_node "@devlikeapro/n8n-nodes-waha"       "WAHA (WhatsApp)"
+    install_node "n8n-nodes-puppeteer"               "Puppeteer (Browser Automation)"
+    install_node "n8n-nodes-text-manipulation"       "Text Manipulation"
+    install_node "n8n-nodes-ollama"                  "Ollama (IA Local)"
+    install_node "@mendable/n8n-nodes-firecrawl"     "Firecrawl (Web Scraping)"
+
+    # Reiniciar editor para carregar os nodes
+    print_info "Reiniciando n8n Editor para carregar os nodes instalados..."
+    docker service update --force n8n_editor_n8n_editor >/dev/null 2>&1
+    print_success "n8n Editor reiniciado!"
+
+    # Aguardar subir novamente e listar nodes instalados
+    print_info "Aguardando n8n Editor reiniciar (20s)..."
+    sleep 20
+
+    N8N_CONTAINER=$(docker ps -q -f name=n8n_editor_n8n_editor)
+    if [ -n "$N8N_CONTAINER" ]; then
+        print_step "CUSTOM NODES INSTALADOS"
+        docker exec -u root "$N8N_CONTAINER" \
+            ls /home/node/.n8n/nodes/node_modules 2>/dev/null \
+            | grep -v "^$" \
+            | while read -r NODE; do
+                echo -e "   ${GREEN}✔${RESET} ${NODE}"
+            done
+    fi
+}
+
+verify_n8n_ffmpeg() {
+    print_step "VERIFICANDO FFMPEG NOS SERVIÇOS N8N"
+
+    verify_service_ffmpeg() {
+        local FILTER="$1"
+        local LABEL="$2"
+        local CID
+        CID=$(docker ps -q -f name="${FILTER}")
+        if [ -n "$CID" ]; then
+            VER=$(docker exec "$CID" ffmpeg -version 2>&1 | head -1)
+            if echo "$VER" | grep -q "ffmpeg version"; then
+                print_success "${LABEL}: FFmpeg OK"
+            else
+                print_warning "${LABEL}: FFmpeg não encontrado no container em execução"
+            fi
+        else
+            print_warning "${LABEL}: container não encontrado (verifique com 'docker service ps')"
+        fi
+    }
+
+    verify_service_ffmpeg "n8n_editor_n8n_editor"   "n8n Editor"
+    verify_service_ffmpeg "n8n_worker_n8n_worker"    "n8n Worker"
+    verify_service_ffmpeg "n8n_webhook_n8n_webhook"  "n8n Webhook"
+}
+
 deploy_services() {
     print_step "INICIANDO SERVIÇOS DE INFRAESTRUTURA"
-    
+
+    # 0. Build da imagem customizada do n8n (antes de qualquer deploy)
+    build_n8n_custom_image
+
     # 1. Traefik e Portainer
     print_info "Deploying Traefik..."
     docker stack deploy --detach=true -c 04.traefik.yaml traefik >/dev/null 2>&1
@@ -79,6 +228,13 @@ deploy_services() {
     docker stack deploy --detach=true -c 09.n8n-workers.yaml n8n_worker >/dev/null 2>&1
     print_info "Deploying N8N Webhook..."
     docker stack deploy --detach=true -c 10.n8n-webhooks.yaml n8n_webhook >/dev/null 2>&1
+
+    # Verificar FFmpeg nos três serviços n8n
+    verify_n8n_ffmpeg
+
+    # Instalar custom nodes via terminal e reiniciar o editor
+    install_n8n_custom_nodes
+
     print_info "Deploying Evolution V2..."
     docker stack deploy --detach=true -c 18.evolution_v2.yaml evolution_v2 >/dev/null 2>&1
     print_info "Deploying Chatwoot..."

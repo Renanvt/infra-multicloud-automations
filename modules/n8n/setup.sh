@@ -54,7 +54,9 @@ ENV_BLOCK
 version: "3.7"
 services:
   n8n_editor:
-    image: n8nio/n8n:2.0.2
+    # Imagem customizada com FFmpeg, ImageMagick, Ghostscript e Python
+    # Build: bash /opt/alobexpress/n8n-custom/build.sh
+    image: alobexpress/n8n-custom:2.0.2
     hostname: "{{.Service.Name}}.{{.Task.Slot}}"
     command: start
     networks:
@@ -94,7 +96,9 @@ EOF
 version: "3.7"
 services:
   n8n_worker:
-    image: n8nio/n8n:2.0.2
+    # Imagem customizada com FFmpeg, ImageMagick, Ghostscript e Python
+    # Build: bash /opt/alobexpress/n8n-custom/build.sh
+    image: alobexpress/n8n-custom:2.0.2
     hostname: "{{.Service.Name}}.{{.Task.Slot}}"
     command: worker --concurrency=10
     networks:
@@ -126,7 +130,9 @@ EOF
 version: "3.7"
 services:
   n8n_webhook:
-    image: n8nio/n8n:2.0.2
+    # Imagem customizada com FFmpeg, ImageMagick, Ghostscript e Python
+    # Build: bash /opt/alobexpress/n8n-custom/build.sh
+    image: alobexpress/n8n-custom:2.0.2
     hostname: "{{.Service.Name}}.{{.Task.Slot}}"
     command: webhook
     networks:

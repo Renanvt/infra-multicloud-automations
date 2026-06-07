@@ -6,7 +6,9 @@ services:
     # imagem do docker
     # se possível, não use a latest .. deixe uma versão fixa
     # https://hub.docker.com/r/n8nio/n8n/tags
-    image: n8nio/n8n:2.0.2
+    # Imagem customizada com FFmpeg, ImageMagick, Ghostscript e Python
+    # Build: cd n8n-custom && docker build -t alobexpress/n8n-custom:2.0.2 .
+    image: alobexpress/n8n-custom:2.0.2
     # Define o hotname do container
     hostname: "{{.Service.Name}}.{{.Task.Slot}}"
     # comando padrão para subir o servidor web do editor
