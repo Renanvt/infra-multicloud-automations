@@ -293,6 +293,11 @@ deploy_services() {
     if [ "$ENABLE_PROMETHEUS" = true ]; then
         deploy_prometheus
     fi
+
+    # Deploy Grafana (dashboards)
+    if [ "$ENABLE_GRAFANA" = true ]; then
+        deploy_grafana
+    fi
 }
 
 configure_chatwoot() {
@@ -445,6 +450,10 @@ print_summary() {
         echo -e "   ${ARROW} Prometheus: https://${PROMETHEUS_DOMAIN}"
     fi
 
+    if [ "$ENABLE_GRAFANA" = true ]; then
+        echo -e "   ${ARROW} Grafana:    https://${GRAFANA_DOMAIN}"
+    fi
+
     echo ""
     echo -e "${YELLOW}⚠️  ATENÇÃO: Você tem 5 MINUTOS para criar a senha de admin no Portainer!${RESET}"
     echo -e "   Acesse agora: https://${PORTAINER_DOMAIN}"
@@ -484,6 +493,9 @@ print_summary() {
 
     # Credenciais / acesso Prometheus
     print_prometheus_summary
+
+    # Credenciais / acesso Grafana
+    print_grafana_summary
 
     echo ""
     echo -e "${BOLD}${CYAN}📋 PRÓXIMOS PASSOS - CHATWOOT:${RESET}"

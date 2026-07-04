@@ -65,6 +65,7 @@ MODULES=(
     "modules/openclaw/setup.sh"
     "modules/postiz/setup.sh"
     "modules/prometheus/setup.sh"
+    "modules/grafana/setup.sh"
 )
 
 for module in "${MODULES[@]}"; do
@@ -126,7 +127,8 @@ ENABLE_DIFY=false
 ENABLE_OPENCLAW=false
 ENABLE_POSTIZ=false
 ENABLE_PROMETHEUS=false
-export ENABLE_DIFY ENABLE_OPENCLAW ENABLE_POSTIZ ENABLE_PROMETHEUS
+ENABLE_GRAFANA=false
+export ENABLE_DIFY ENABLE_OPENCLAW ENABLE_POSTIZ ENABLE_PROMETHEUS ENABLE_GRAFANA
 
 print_step "PREPARANDO DIRETÓRIO DE INSTALAÇÃO"
 if [ ! -d "$INSTALL_DIR" ]; then
@@ -168,6 +170,14 @@ if [[ "$_PROM_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
     setup_prometheus_vars
 fi
 
+# Grafana — dashboards e visualização
+read -p "$(echo -e "${CYAN}📊 Deseja instalar o Grafana (dashboards)? (s/n): ${RESET}")" _GRAF_OPT < /dev/tty || true
+if [[ "$_GRAF_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
+    ENABLE_GRAFANA=true
+    export ENABLE_GRAFANA
+    setup_grafana_vars
+fi
+
 # 7. Resource Definition
 print_banner
 define_resources
@@ -189,6 +199,10 @@ fi
 
 if [ "$ENABLE_PROMETHEUS" = true ]; then
     generate_prometheus_yaml
+fi
+
+if [ "$ENABLE_GRAFANA" = true ]; then
+    generate_grafana_yaml
 fi
 
 print_success "Arquivos YAML gerados com sucesso!"
