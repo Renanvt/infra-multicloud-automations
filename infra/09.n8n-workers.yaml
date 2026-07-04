@@ -7,8 +7,8 @@ services:
     # se possível, não use a latest .. deixe uma versão fixa
     # https://hub.docker.com/r/n8nio/n8n/tags
     # Imagem customizada com FFmpeg, ImageMagick, Ghostscript e Python
-    # Build: cd n8n-custom && docker build -t alobexpress/n8n-custom:2.0.2 .
-    image: alobexpress/n8n-custom:2.0.2
+    # Build: cd n8n-custom && docker build -t {nome-do-negocio}/n8n-custom:2.0.2 .
+    image: {nome-do-negocio}/n8n-custom:2.0.2
     # Define o hotname do container
     hostname: "{{.Service.Name}}.{{.Task.Slot}}"
     # comando padrão para subir o servidor web do editor
@@ -102,13 +102,21 @@ services:
       ################################################################
       ################################################################
       # Configura quais bibliotecas nativas podem ser importardas no node Code
-      - NODE_FUNCTION_ALLOW_BUILTIN=*
+      - NODE_FUNCTION_ALLOW_BUILTIN=child_process,fs
       # Configura as bibliotecas externas que serão utilizadas
       - NODE_FUNCTION_ALLOW_EXTERNAL=moment,lodash
       # Habilita o uso de pacotes da comunidade
       - N8N_COMMUNITY_PACKAGES_ENABLED=true
       # Reinstalar os Community Nodes
       - N8N_REINSTALL_MISSING_PACKAGES=true
+      ################################################################
+      # Acesso ao sistema de arquivos da VM (Read/Write Files node) ##
+      ################################################################
+      # Restringe o acesso do n8n à pasta /files (montada abaixo)
+      - N8N_RESTRICT_FILE_ACCESS_TO=/files
+    # Monta a pasta da VM dentro do container como /files
+    volumes:
+      - /opt/infra/alobexpress/n8n-local-files:/files
     # Configura o Modo de Deploy da Aplicação
     deploy:
       # 0 editor será executado no modo de replicação

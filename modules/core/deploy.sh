@@ -99,6 +99,7 @@ install_n8n_custom_nodes() {
     install_node "n8n-nodes-text-manipulation"       "Text Manipulation"
     install_node "n8n-nodes-ollama"                  "Ollama (IA Local)"
     install_node "@mendable/n8n-nodes-firecrawl"     "Firecrawl (Web Scraping)"
+    install_node "n8n-nodes-postiz"                  "Postiz (Social Media)"
 
     # Reiniciar editor para carregar os nodes
     print_info "Reiniciando n8n Editor para carregar os nodes instalados..."
@@ -221,7 +222,13 @@ deploy_services() {
     
     # Criar volume externo para Evolution
     docker volume create evolution_v2_data >/dev/null
-    
+
+    # Criar pasta local para o nó Read/Write Files from Disk do n8n
+    print_info "Criando diretório de arquivos locais do n8n..."
+    mkdir -p "/opt/infra/${BUSINESS_NAME}/n8n-local-files"
+    chmod 777 "/opt/infra/${BUSINESS_NAME}/n8n-local-files"
+    print_success "Diretório criado: /opt/infra/${BUSINESS_NAME}/n8n-local-files (montado como /files nos containers)"
+
     print_info "Deploying N8N Editor..."
     docker stack deploy --detach=true -c 08.n8n-editor.yaml n8n_editor >/dev/null 2>&1
     print_info "Deploying N8N Worker..."
@@ -275,6 +282,11 @@ deploy_services() {
         print_info "Deploying Dify Web & Worker..."
         docker stack deploy --detach=true -c 14.dify-web.yaml dify_web >/dev/null 2>&1
         docker stack deploy --detach=true -c 16.dify-worker.yaml dify_worker >/dev/null 2>&1
+    fi
+
+    # Deploy Postiz (gerenciador de redes sociais — independente do módulo de IA)
+    if [ "$ENABLE_POSTIZ" = true ]; then
+        deploy_postiz
     fi
 }
 
@@ -419,6 +431,11 @@ print_summary() {
         echo -e "   ${ARROW} OpenClaw: https://${OPENCLAW_DOMAIN}"
     fi
 
+    if [ "$ENABLE_POSTIZ" = true ]; then
+        echo -e "   ${ARROW} Postiz:   https://${POSTIZ_DOMAIN}"
+        echo -e "   ${ARROW} Postiz Temporal UI: https://${POSTIZ_TEMPORAL_DOMAIN}"
+    fi
+
     echo ""
     echo -e "${YELLOW}⚠️  ATENÇÃO: Você tem 5 MINUTOS para criar a senha de admin no Portainer!${RESET}"
     echo -e "   Acesse agora: https://${PORTAINER_DOMAIN}"
@@ -450,6 +467,11 @@ print_summary() {
 
     # Credenciais OpenClaw
     print_openclaw_summary
+
+    # Credenciais / acesso Postiz
+    if [ "$ENABLE_POSTIZ" = true ]; then
+        print_postiz_summary
+    fi
 
     echo ""
     echo -e "${BOLD}${CYAN}📋 PRÓXIMOS PASSOS - CHATWOOT:${RESET}"

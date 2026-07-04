@@ -43,7 +43,7 @@ fi
 # ----------------------------------------------------------------------------
 echo -e ""
 echo -e "${CYAN}▶ Iniciando build da imagem ${BOLD}${IMAGE_TAG}${RESET}${CYAN}...${RESET}"
-echo -e "${YELLOW}  (pode levar alguns minutos na primeira execução)${RESET}"
+echo -e "${YELLOW}  (pode levar alguns minutos — inclui download do ffmpeg e npm install do n8n-nodes-postiz)${RESET}"
 echo -e ""
 
 if docker build -t "${IMAGE_TAG}" "${DOCKERFILE_DIR}"; then

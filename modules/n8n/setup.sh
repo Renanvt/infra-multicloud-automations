@@ -46,6 +46,11 @@ ${AWS_ENV}
       - QUEUE_BULL_REDIS_PASSWORD=${REDIS_PASSWORD}
       - EXECUTIONS_DATA_PRUNE=true
       - EXECUTIONS_DATA_MAX_AGE=336
+      - N8N_RESTRICT_FILE_ACCESS_TO=/files
+      - NODE_FUNCTION_ALLOW_BUILTIN=child_process,fs
+      - NODE_FUNCTION_ALLOW_EXTERNAL=moment,lodash
+      - N8N_COMMUNITY_PACKAGES_ENABLED=true
+      - N8N_REINSTALL_MISSING_PACKAGES=true
 ENV_BLOCK
 )
 
@@ -63,6 +68,8 @@ services:
       - network_swarm_public
     environment:
 $N8N_ENV_BLOCK
+    volumes:
+      - /opt/infra/${BUSINESS_NAME}/n8n-local-files:/files
     deploy:
       mode: replicated
       replicas: 1
@@ -105,6 +112,8 @@ services:
       - network_swarm_public
     environment:
 $N8N_ENV_BLOCK
+    volumes:
+      - /opt/infra/${BUSINESS_NAME}/n8n-local-files:/files
     deploy:
       mode: replicated
       replicas: 1
@@ -139,6 +148,8 @@ services:
       - network_swarm_public
     environment:
 $N8N_ENV_BLOCK
+    volumes:
+      - /opt/infra/${BUSINESS_NAME}/n8n-local-files:/files
     deploy:
       mode: replicated
       replicas: 1

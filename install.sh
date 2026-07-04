@@ -63,6 +63,7 @@ MODULES=(
     "modules/dify/setup.sh"
     "modules/chatwoot/setup.sh"
     "modules/openclaw/setup.sh"
+    "modules/postiz/setup.sh"
 )
 
 for module in "${MODULES[@]}"; do
@@ -122,7 +123,8 @@ log_message "INFO" "Iniciando setup para o negócio: $BUSINESS_NAME"
 # Flags de módulos opcionais — inicializados como false até o usuário escolher
 ENABLE_DIFY=false
 ENABLE_OPENCLAW=false
-export ENABLE_DIFY ENABLE_OPENCLAW
+ENABLE_POSTIZ=false
+export ENABLE_DIFY ENABLE_OPENCLAW ENABLE_POSTIZ
 
 print_step "PREPARANDO DIRETÓRIO DE INSTALAÇÃO"
 if [ ! -d "$INSTALL_DIR" ]; then
@@ -148,6 +150,14 @@ setup_dify_vars      # Menu: escolhe Dify, OpenClaw ou nenhum
 setup_openclaw_vars  # Coleta inputs do OpenClaw (skip se ENABLE_OPENCLAW != true)
 setup_chatwoot_vars
 
+# Postiz — pergunta separada, independente do menu Dify/OpenClaw
+read -p "$(echo -e "${CYAN}📱 Deseja instalar o Postiz (gerenciador de redes sociais)? (s/n): ${RESET}")" _POSTIZ_OPT < /dev/tty || true
+if [[ "$_POSTIZ_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
+    ENABLE_POSTIZ=true
+    export ENABLE_POSTIZ
+    setup_postiz_vars
+fi
+
 # 7. Resource Definition
 print_banner
 define_resources
@@ -162,6 +172,10 @@ generate_evolution_yaml
 generate_dify_yamls
 generate_openclaw_yaml  # Gera 21.openclaw.yaml (skip se ENABLE_OPENCLAW != true)
 generate_chatwoot_yaml
+
+if [ "$ENABLE_POSTIZ" = true ]; then
+    generate_postiz_yaml
+fi
 
 print_success "Arquivos YAML gerados com sucesso!"
 

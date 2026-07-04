@@ -23,7 +23,7 @@ services:
       OPENCLAW_GATEWAY_BIND: lan
 
     volumes:
-      - /opt/infra/alobexpress/openclaw:/home/node/.openclaw
+      - /opt/infra/{nome-do-negocio}/openclaw:/home/node/.openclaw
 
     tmpfs:
       - /tmp:size=1g
@@ -62,7 +62,7 @@ services:
       labels:
         traefik.enable: "true"
         traefik.swarm.network: "network_swarm_public"
-        traefik.http.routers.openclaw.rule: "Host(`openclaw.alobexpress.com.br`)"
+        traefik.http.routers.openclaw.rule: "Host(`openclaw.seudominio.com.br`)"
         traefik.http.routers.openclaw.entrypoints: "websecure"
         traefik.http.routers.openclaw.priority: "1"
         traefik.http.routers.openclaw.tls.certresolver: "letsencryptresolver"

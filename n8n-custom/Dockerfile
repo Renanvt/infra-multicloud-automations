@@ -15,4 +15,12 @@ RUN apk add --no-cache \
     python3 \
     py3-pip
 
+# Instala o community node do Postiz
+# ATENÇÃO: o n8n recria /home/node/.n8n ao iniciar — este node será reinstalado
+# automaticamente via N8N_REINSTALL_MISSING_PACKAGES=true ou pelo script de deploy.
 USER node
+WORKDIR /home/node/.n8n/nodes
+RUN npm install n8n-nodes-postiz
+
+USER node
+WORKDIR /

@@ -12,7 +12,7 @@ services:
       HERMES_HOME: /opt/data
 
     volumes:
-      - /opt/infra/alobexpress/hermes:/opt/data
+      - /opt/infra/{nome-do-negocio}/hermes:/opt/data
 
     tmpfs:
       - /tmp:size=512m
@@ -55,7 +55,7 @@ services:
         traefik.swarm.network: "network_swarm_public"
 
         # Gateway API
-        traefik.http.routers.hermes.rule: "Host(`hermes.alobexpress.com.br`)"
+        traefik.http.routers.hermes.rule: "Host(`hermes.seudominio.com.br`)"
         traefik.http.routers.hermes.entrypoints: "websecure"
         traefik.http.routers.hermes.priority: "1"
         traefik.http.routers.hermes.tls.certresolver: "letsencryptresolver"
@@ -81,7 +81,7 @@ services:
       GATEWAY_HEALTH_URL: http://hermes_gateway:8642
 
     volumes:
-      - /opt/infra/alobexpress/hermes:/opt/data
+      - /opt/infra/{nome-do-negocio}/hermes:/opt/data
 
     networks:
       - network_swarm_public
@@ -119,7 +119,7 @@ services:
         traefik.swarm.network: "network_swarm_public"
 
         # Dashboard UI
-        traefik.http.routers.hermes-dashboard.rule: "Host(`hermes-dashboard.alobexpress.com.br`)"
+        traefik.http.routers.hermes-dashboard.rule: "Host(`hermes-dashboard.seudominio.com.br`)"
         traefik.http.routers.hermes-dashboard.entrypoints: "websecure"
         traefik.http.routers.hermes-dashboard.priority: "1"
         traefik.http.routers.hermes-dashboard.tls.certresolver: "letsencryptresolver"

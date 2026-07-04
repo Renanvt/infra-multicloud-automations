@@ -1,0 +1,330 @@
+version: "3.7"
+
+services:
+
+  # ─── Postiz (App principal) ───────────────────────────────────────────────
+  postiz:
+    image: ghcr.io/gitroomhq/postiz-app:latest
+
+    environment:
+      NODE_ENV: "production"
+      TZ: "America/Sao_Paulo"
+      MAIN_URL: "https://postiz.seudominio.com.br"
+      FRONTEND_URL: "https://postiz.seudominio.com.br"
+      NEXT_PUBLIC_BACKEND_URL: "https://postiz.seudominio.com.br/api"
+      BACKEND_INTERNAL_URL: "http://postiz:5000"
+      JWT_SECRET: "GERAR_COM_openssl_rand_hex_32"
+
+      # Banco e Cache (serviços existentes)
+      DATABASE_URL: "postgresql://postgres:SENHA@postgres_postgres:5432/postiz"
+      REDIS_URL: "redis://:SENHA@redis_redis:6379"
+
+      # Temporal
+      TEMPORAL_ADDRESS: "temporal-internal:7233"
+
+      IS_GENERAL: "true"
+      DISABLE_REGISTRATION: "false"
+      RUN_CRON: "true"
+
+      # Storage local
+      STORAGE_PROVIDER: "local"
+      UPLOAD_DIRECTORY: "/uploads"
+      NEXT_PUBLIC_UPLOAD_DIRECTORY: "/uploads"
+
+      # Redes sociais (preencha conforme necessário)
+      X_URL: ""
+      X_API_KEY: ""
+      X_API_SECRET: ""
+      LINKEDIN_CLIENT_ID: ""
+      LINKEDIN_CLIENT_SECRET: ""
+      REDDIT_CLIENT_ID: ""
+      REDDIT_CLIENT_SECRET: ""
+      GITHUB_CLIENT_ID: ""
+      GITHUB_CLIENT_SECRET: ""
+      BEEHIIVE_API_KEY: ""
+      BEEHIIVE_PUBLICATION_ID: ""
+      FACEBOOK_APP_ID: ""
+      FACEBOOK_APP_SECRET: ""
+      INSTAGRAM_APP_ID: ""
+      INSTAGRAM_APP_SECRET: ""
+      YOUTUBE_CLIENT_ID: ""
+      YOUTUBE_CLIENT_SECRET: ""
+      TIKTOK_CLIENT_ID: ""
+      TIKTOK_CLIENT_SECRET: ""
+      PINTEREST_CLIENT_ID: ""
+      PINTEREST_CLIENT_SECRET: ""
+      DRIBBBLE_CLIENT_ID: ""
+      DRIBBBLE_CLIENT_SECRET: ""
+      DISCORD_CLIENT_ID: ""
+      DISCORD_CLIENT_SECRET: ""
+      DISCORD_BOT_TOKEN_ID: ""
+      SLACK_ID: ""
+      SLACK_SECRET: ""
+      SLACK_SIGNING_SECRET: ""
+      MASTODON_URL: "https://mastodon.social"
+      MASTODON_CLIENT_ID: ""
+      MASTODON_CLIENT_SECRET: ""
+      THREADS_APP_ID: ""
+      THREADS_APP_SECRET: ""
+
+      # OpenAI (opcional)
+      OPENAI_API_KEY: ""
+      NEXT_PUBLIC_DISCORD_SUPPORT: ""
+      NEXT_PUBLIC_POLOTNO: ""
+
+      # Misc
+      API_LIMIT: "30"
+      NX_ADD_PLUGINS: "false"
+
+      # Payment / Stripe (opcional)
+      FEE_AMOUNT: "0.05"
+      STRIPE_PUBLISHABLE_KEY: ""
+      STRIPE_SECRET_KEY: ""
+      STRIPE_SIGNING_KEY: ""
+      STRIPE_SIGNING_KEY_CONNECT: ""
+      TRUST_PROXY: "true"
+
+    volumes:
+      - postiz_uploads:/uploads
+      - postiz_config:/config
+
+    networks:
+      - network_swarm_public
+      - network_postiz_internal
+
+    deploy:
+      mode: replicated
+      replicas: 1
+
+      placement:
+        constraints:
+          - node.role == manager
+
+      resources:
+        reservations:
+          cpus: "0.25"
+          memory: 512M
+        limits:
+          cpus: "2.0"
+          memory: 4096M
+
+      restart_policy:
+        condition: on-failure
+        delay: 60s
+        max_attempts: 10
+        window: 120s
+
+      update_config:
+        parallelism: 1
+        delay: 30s
+        order: stop-first
+        failure_action: rollback
+
+      labels:
+        traefik.enable: "true"
+        traefik.swarm.network: "network_swarm_public"
+        traefik.http.routers.postiz.rule: "Host(`postiz.seudominio.com.br`)"
+        traefik.http.routers.postiz.entrypoints: "websecure"
+        traefik.http.routers.postiz.priority: "1"
+        traefik.http.routers.postiz.tls.certresolver: "letsencryptresolver"
+        traefik.http.routers.postiz.service: "postiz"
+        traefik.http.routers.postiz.middlewares: "postiz-headers"
+        traefik.http.services.postiz.loadbalancer.server.port: "5000"
+        traefik.http.services.postiz.loadbalancer.passHostHeader: "true"
+        traefik.http.middlewares.postiz-headers.headers.customrequestheaders.X-Forwarded-Proto: "https"
+        traefik.http.middlewares.postiz-headers.headers.customrequestheaders.X-Forwarded-Port: "443"
+
+    healthcheck:
+      test: ["CMD", "node", "-e", "const r=require('http').get('http://localhost:5000/',res=>process.exit(res.statusCode<500?0:1));r.on('error',()=>process.exit(1));r.setTimeout(4000,()=>{r.destroy();process.exit(1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
+
+  # ─── Temporal Elasticsearch ───────────────────────────────────────────────
+  postiz_temporal_elasticsearch:
+    image: elasticsearch:7.17.27
+
+    environment:
+      TZ: "America/Sao_Paulo"
+      cluster.routing.allocation.disk.threshold_enabled: "true"
+      cluster.routing.allocation.disk.watermark.low: "512mb"
+      cluster.routing.allocation.disk.watermark.high: "256mb"
+      cluster.routing.allocation.disk.watermark.flood_stage: "128mb"
+      discovery.type: "single-node"
+      ES_JAVA_OPTS: "-Xms256m -Xmx256m"
+      xpack.security.enabled: "false"
+
+    volumes:
+      - postiz_elasticsearch:/usr/share/elasticsearch/data
+
+    networks:
+      - network_postiz_internal
+
+    deploy:
+      mode: replicated
+      replicas: 1
+
+      placement:
+        constraints:
+          - node.role == manager
+
+      resources:
+        reservations:
+          cpus: "0.25"
+          memory: 512M
+        limits:
+          cpus: "1.0"
+          memory: 1024M
+
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+        window: 120s
+
+      labels:
+        traefik.enable: "false"
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s' || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  # ─── Temporal ─────────────────────────────────────────────────────────────
+  postiz_temporal:
+    image: temporalio/auto-setup:1.28.1
+
+    environment:
+      TZ: "America/Sao_Paulo"
+      DB: "postgres12"
+      DB_PORT: "5432"
+      POSTGRES_USER: "postgres"
+      POSTGRES_PWD: "SENHA"
+      POSTGRES_SEEDS: "postgres_postgres"
+      DYNAMIC_CONFIG_FILE_PATH: "config/dynamicconfig/development-sql.yaml"
+      ENABLE_ES: "true"
+      ES_SEEDS: "postiz_temporal_elasticsearch"
+      ES_VERSION: "v7"
+      TEMPORAL_NAMESPACE: "default"
+
+    volumes:
+      - /opt/infra/{nome-do-negocio}/postiz/dynamicconfig:/etc/temporal/config/dynamicconfig
+
+    networks:
+      network_swarm_public:
+      network_postiz_internal:
+        aliases:
+          - temporal-internal
+
+    deploy:
+      mode: replicated
+      replicas: 1
+
+      placement:
+        constraints:
+          - node.role == manager
+
+      resources:
+        reservations:
+          cpus: "0.25"
+          memory: 512M
+        limits:
+          cpus: "1.0"
+          memory: 1024M
+
+      restart_policy:
+        condition: on-failure
+        delay: 15s
+        max_attempts: 5
+        window: 120s
+
+      labels:
+        traefik.enable: "false"
+
+  # ─── Temporal UI ──────────────────────────────────────────────────────────
+  postiz_temporal_ui:
+    image: temporalio/ui:2.34.0
+
+    environment:
+      TZ: "America/Sao_Paulo"
+      TEMPORAL_ADDRESS: "temporal-internal:7233"
+      TEMPORAL_CORS_ORIGINS: "https://postiz-temporal.seudominio.com.br"
+      TEMPORAL_CSRF_COOKIE_INSECURE: "true"
+      TEMPORAL_AUTH_ENABLED: "false"
+
+    networks:
+      - network_swarm_public
+      - network_postiz_internal
+
+    deploy:
+      mode: replicated
+      replicas: 1
+
+      placement:
+        constraints:
+          - node.role == manager
+
+      resources:
+        reservations:
+          cpus: "0.10"
+          memory: 128M
+        limits:
+          cpus: "0.50"
+          memory: 512M
+
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+        window: 120s
+
+      labels:
+        traefik.enable: "true"
+        traefik.swarm.network: "network_swarm_public"
+        traefik.http.routers.postiz-temporal.rule: "Host(`postiz-temporal.seudominio.com.br`)"
+        traefik.http.routers.postiz-temporal.entrypoints: "websecure"
+        traefik.http.routers.postiz-temporal.priority: "1"
+        traefik.http.routers.postiz-temporal.tls.certresolver: "letsencryptresolver"
+        traefik.http.routers.postiz-temporal.service: "postiz_temporal_ui"
+        # Basic Auth — protege o Temporal UI com usuário/senha
+        # Gere o hash com: htpasswd -nb admin SUA_SENHA | sed 's/\$/\$\$/g'
+        traefik.http.routers.postiz-temporal.middlewares: "postiz-temporal-auth"
+        traefik.http.middlewares.postiz-temporal-auth.basicauth.users: "admin:$$HASH_AQUI"
+        traefik.http.services.postiz_temporal_ui.loadbalancer.server.port: "8080"
+        traefik.http.services.postiz_temporal_ui.loadbalancer.passHostHeader: "true"
+
+volumes:
+  postiz_uploads:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/infra/{nome-do-negocio}/postiz/uploads
+
+  postiz_config:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/infra/{nome-do-negocio}/postiz/config
+
+  postiz_elasticsearch:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/infra/{nome-do-negocio}/postiz/elasticsearch
+
+networks:
+  network_swarm_public:
+    external: true
+    name: network_swarm_public
+
+  network_postiz_internal:
+    driver: overlay
+    internal: true
+    attachable: true
+    name: network_postiz_internal
