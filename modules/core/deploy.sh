@@ -288,6 +288,11 @@ deploy_services() {
     if [ "$ENABLE_POSTIZ" = true ]; then
         deploy_postiz
     fi
+
+    # Deploy Prometheus (monitoramento)
+    if [ "$ENABLE_PROMETHEUS" = true ]; then
+        deploy_prometheus
+    fi
 }
 
 configure_chatwoot() {
@@ -436,6 +441,10 @@ print_summary() {
         echo -e "   ${ARROW} Postiz Temporal UI: https://${POSTIZ_TEMPORAL_DOMAIN}"
     fi
 
+    if [ "$ENABLE_PROMETHEUS" = true ]; then
+        echo -e "   ${ARROW} Prometheus: https://${PROMETHEUS_DOMAIN}"
+    fi
+
     echo ""
     echo -e "${YELLOW}⚠️  ATENÇÃO: Você tem 5 MINUTOS para criar a senha de admin no Portainer!${RESET}"
     echo -e "   Acesse agora: https://${PORTAINER_DOMAIN}"
@@ -472,6 +481,9 @@ print_summary() {
     if [ "$ENABLE_POSTIZ" = true ]; then
         print_postiz_summary
     fi
+
+    # Credenciais / acesso Prometheus
+    print_prometheus_summary
 
     echo ""
     echo -e "${BOLD}${CYAN}📋 PRÓXIMOS PASSOS - CHATWOOT:${RESET}"

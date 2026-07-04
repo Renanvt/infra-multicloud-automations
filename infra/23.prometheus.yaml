@@ -1,0 +1,68 @@
+version: "3.7"
+
+services:
+
+  # ─── Prometheus ───────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+
+    volumes:
+      - prometheus_data:/prometheus
+      - /opt/infra/{nome-do-negocio}/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+      - "--web.enable-lifecycle"
+
+    networks:
+      - network_swarm_public
+
+    deploy:
+      mode: replicated
+      replicas: 1
+
+      placement:
+        constraints:
+          - node.role == manager
+
+      resources:
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+        limits:
+          cpus: "1.0"
+          memory: 1024M
+
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+        window: 120s
+
+      labels:
+        traefik.enable: "true"
+        traefik.swarm.network: "network_swarm_public"
+        traefik.http.routers.prometheus.rule: "Host(`prometheus.seudominio.com.br`)"
+        traefik.http.routers.prometheus.entrypoints: "websecure"
+        traefik.http.routers.prometheus.priority: "1"
+        traefik.http.routers.prometheus.tls.certresolver: "letsencryptresolver"
+        traefik.http.routers.prometheus.service: "prometheus"
+        # Basic Auth — gerado com: htpasswd -nb admin SUA_SENHA | sed 's/\$/\$\$/g'
+        traefik.http.routers.prometheus.middlewares: "prometheus-auth"
+        traefik.http.middlewares.prometheus-auth.basicauth.users: "admin:$$HASH_AQUI"
+        traefik.http.services.prometheus.loadbalancer.server.port: "9090"
+
+volumes:
+  prometheus_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/infra/{nome-do-negocio}/prometheus/data
+
+networks:
+  network_swarm_public:
+    external: true
+    name: network_swarm_public

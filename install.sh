@@ -64,6 +64,7 @@ MODULES=(
     "modules/chatwoot/setup.sh"
     "modules/openclaw/setup.sh"
     "modules/postiz/setup.sh"
+    "modules/prometheus/setup.sh"
 )
 
 for module in "${MODULES[@]}"; do
@@ -124,7 +125,8 @@ log_message "INFO" "Iniciando setup para o negócio: $BUSINESS_NAME"
 ENABLE_DIFY=false
 ENABLE_OPENCLAW=false
 ENABLE_POSTIZ=false
-export ENABLE_DIFY ENABLE_OPENCLAW ENABLE_POSTIZ
+ENABLE_PROMETHEUS=false
+export ENABLE_DIFY ENABLE_OPENCLAW ENABLE_POSTIZ ENABLE_PROMETHEUS
 
 print_step "PREPARANDO DIRETÓRIO DE INSTALAÇÃO"
 if [ ! -d "$INSTALL_DIR" ]; then
@@ -158,6 +160,14 @@ if [[ "$_POSTIZ_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
     setup_postiz_vars
 fi
 
+# Prometheus — monitoramento
+read -p "$(echo -e "${CYAN}📊 Deseja instalar o Prometheus (monitoramento)? (s/n): ${RESET}")" _PROM_OPT < /dev/tty || true
+if [[ "$_PROM_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
+    ENABLE_PROMETHEUS=true
+    export ENABLE_PROMETHEUS
+    setup_prometheus_vars
+fi
+
 # 7. Resource Definition
 print_banner
 define_resources
@@ -175,6 +185,10 @@ generate_chatwoot_yaml
 
 if [ "$ENABLE_POSTIZ" = true ]; then
     generate_postiz_yaml
+fi
+
+if [ "$ENABLE_PROMETHEUS" = true ]; then
+    generate_prometheus_yaml
 fi
 
 print_success "Arquivos YAML gerados com sucesso!"
