@@ -290,13 +290,9 @@ deploy_services() {
     fi
 
     # Deploy Prometheus (monitoramento)
+    # Deploy Prometheus + Grafana + Node Exporter (stack integrada)
     if [ "$ENABLE_PROMETHEUS" = true ]; then
         deploy_prometheus
-    fi
-
-    # Deploy Grafana (dashboards)
-    if [ "$ENABLE_GRAFANA" = true ]; then
-        deploy_grafana
     fi
 }
 
@@ -447,11 +443,9 @@ print_summary() {
     fi
 
     if [ "$ENABLE_PROMETHEUS" = true ]; then
-        echo -e "   ${ARROW} Prometheus: https://${PROMETHEUS_DOMAIN}"
-    fi
-
-    if [ "$ENABLE_GRAFANA" = true ]; then
-        echo -e "   ${ARROW} Grafana:    https://${GRAFANA_DOMAIN}"
+        echo -e "   ${ARROW} Prometheus:   https://${PROMETHEUS_DOMAIN}"
+        echo -e "   ${ARROW} Grafana:       https://${GRAFANA_DOMAIN}"
+        echo -e "   ${ARROW} Node Exporter: (modo global — sem UI)"
     fi
 
     echo ""
@@ -491,11 +485,8 @@ print_summary() {
         print_postiz_summary
     fi
 
-    # Credenciais / acesso Prometheus
+    # Credenciais / acesso Prometheus (inclui Grafana e Node Exporter)
     print_prometheus_summary
-
-    # Credenciais / acesso Grafana
-    print_grafana_summary
 
     echo ""
     echo -e "${BOLD}${CYAN}📋 PRÓXIMOS PASSOS - CHATWOOT:${RESET}"

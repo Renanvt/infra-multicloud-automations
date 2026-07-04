@@ -2,26 +2,30 @@
 
 # =============================================================================
 # Prometheus Module
-# Monitoramento e métricas via Prometheus + Basic Auth no Traefik
+# Instala Prometheus + Grafana + Node Exporter como stack integrada
+# O usuário só precisa responder UMA pergunta — os 3 sobem juntos
 # =============================================================================
 
 setup_prometheus_vars() {
     print_banner
-    print_step "CONFIGURAÇÕES PROMETHEUS"
+    print_step "CONFIGURAÇÕES PROMETHEUS + GRAFANA + NODE EXPORTER"
 
+    echo -e "  ${DIM}Ao instalar o Prometheus, o Grafana e o Node Exporter serão instalados${RESET}"
+    echo -e "  ${DIM}automaticamente como parte da stack de monitoramento.${RESET}"
+    echo -e ""
+
+    # ── Prometheus ──────────────────────────────────────────────────────────
     confirm_input "${CYAN}🌐 Domínio Prometheus (ex: prometheus.meudominio.com): ${RESET}" \
         "Prometheus será:" PROMETHEUS_DOMAIN
 
-    # Usuário para Basic Auth
-    confirm_input "${CYAN}👤 Usuário Basic Auth (padrão: admin): ${RESET}" \
+    confirm_input "${CYAN}👤 Usuário Basic Auth Prometheus (padrão: admin): ${RESET}" \
         "Usuário:" PROMETHEUS_USER
     if [ -z "$PROMETHEUS_USER" ]; then PROMETHEUS_USER="admin"; fi
 
-    # Senha para Basic Auth
     confirm_input "${CYAN}🔑 Senha para proteger o Prometheus: ${RESET}" \
         "Senha Prometheus:" PROMETHEUS_PASSWORD
 
-    # Gerar hash htpasswd
+    # Gerar hash htpasswd para Prometheus
     if ! command -v htpasswd >/dev/null 2>&1; then
         print_info "htpasswd não encontrado — instalando apache2-utils..."
         apt-get install -y apache2-utils >/dev/null 2>&1 || true
@@ -30,14 +34,31 @@ setup_prometheus_vars() {
     if command -v htpasswd >/dev/null 2>&1; then
         PROMETHEUS_HASH=$(htpasswd -nb "$PROMETHEUS_USER" "$PROMETHEUS_PASSWORD" \
             | sed 's/\$/\$\$/g')
-        print_success "Hash Basic Auth gerado"
+        print_success "Hash Basic Auth Prometheus gerado"
     else
-        print_warning "Não foi possível gerar o hash — edite 23.prometheus.yaml depois:"
-        echo -e "  ${DIM}htpasswd -nb ${PROMETHEUS_USER} SUA_SENHA | sed 's/\\\$/\\\$\\\$/g'${RESET}"
+        print_warning "Não foi possível gerar o hash — edite 23.prometheus.yaml depois"
         PROMETHEUS_HASH="${PROMETHEUS_USER}:\$\$HASH_PENDENTE"
     fi
 
+    # ── Grafana (automático com Prometheus) ─────────────────────────────────
+    print_step "CONFIGURAÇÕES GRAFANA"
+
+    confirm_input "${CYAN}🌐 Domínio Grafana (ex: grafana.meudominio.com): ${RESET}" \
+        "Grafana será:" GRAFANA_DOMAIN
+
+    confirm_input "${CYAN}👤 Usuário admin Grafana (padrão: admin): ${RESET}" \
+        "Usuário Grafana:" GRAFANA_ADMIN_USER
+    if [ -z "$GRAFANA_ADMIN_USER" ]; then GRAFANA_ADMIN_USER="admin"; fi
+
+    confirm_input "${CYAN}🔑 Senha admin Grafana: ${RESET}" \
+        "Senha Grafana:" GRAFANA_ADMIN_PASSWORD
+
+    # Ativar flags de Grafana automaticamente
+    ENABLE_GRAFANA=true
+    export ENABLE_GRAFANA
+
     export PROMETHEUS_DOMAIN PROMETHEUS_USER PROMETHEUS_PASSWORD PROMETHEUS_HASH
+    export GRAFANA_DOMAIN GRAFANA_ADMIN_USER GRAFANA_ADMIN_PASSWORD
 }
 
 generate_prometheus_yaml() {
@@ -110,18 +131,61 @@ networks:
 EOF
 }
 
+generate_node_exporter_yaml() {
+    cat <<'EOF' > 25.node-exporter.yaml
+version: "3.7"
+
+services:
+
+  # ─── Node Exporter ────────────────────────────────────────────────────────
+  # Roda em modo global (um por nó do Swarm) — coleta métricas do host
+  node-exporter:
+    image: prom/node-exporter:latest
+
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.rootfs=/rootfs"
+      - "--path.sysfs=/host/sys"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+
+    networks:
+      - network_swarm_public
+
+    deploy:
+      mode: global
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+      restart_policy:
+        condition: on-failure
+      labels:
+        traefik.enable: "false"
+
+networks:
+  network_swarm_public:
+    external: true
+    name: network_swarm_public
+EOF
+}
+
 deploy_prometheus() {
     local DATA_DIR="/opt/infra/${BUSINESS_NAME}/prometheus"
 
-    print_step "DEPLOY PROMETHEUS"
+    print_step "DEPLOY PROMETHEUS + NODE EXPORTER + GRAFANA"
 
-    # Criar diretórios
+    # ── Criar diretórios ─────────────────────────────────────────────────────
     print_info "Criando diretórios de dados do Prometheus..."
     mkdir -p "${DATA_DIR}/data"
-    chmod 777 "${DATA_DIR}/data"  # prometheus roda como uid 65534 (nobody)
+    chmod 777 "${DATA_DIR}/data"  # uid 65534 (nobody)
     print_success "Diretório ${DATA_DIR}/data criado"
 
-    # Gerar arquivo prometheus.yml
+    # ── Gerar prometheus.yml com os 3 jobs ───────────────────────────────────
     print_info "Gerando ${DATA_DIR}/prometheus.yml..."
     cat > "${DATA_DIR}/prometheus.yml" <<'PROMCFG'
 global:
@@ -136,19 +200,40 @@ scrape_configs:
   - job_name: "node"
     static_configs:
       - targets: ["node-exporter:9100"]
-PROMCFG
-    print_success "prometheus.yml criado"
 
-    # Deploy da stack
+  - job_name: "node-exporter"
+    static_configs:
+      - targets: ["node-exporter:9100"]
+PROMCFG
+    print_success "prometheus.yml criado (scrape: prometheus + node + node-exporter)"
+
+    # ── Deploy Prometheus ────────────────────────────────────────────────────
     print_info "Deploying Prometheus..."
     docker stack deploy --detach=true -c 23.prometheus.yaml prometheus >/dev/null 2>&1
-    print_success "Stack 'prometheus' enviada para o Swarm"
+    print_success "Stack 'prometheus' enviada"
 
-    # Aguardar e verificar
+    # ── Deploy Node Exporter ─────────────────────────────────────────────────
+    print_info "Deploying Node Exporter (modo global)..."
+    docker stack deploy --detach=true -c 25.node-exporter.yaml node_exporter >/dev/null 2>&1
+    print_success "Stack 'node_exporter' enviada"
+
+    # ── Deploy Grafana (automático) ──────────────────────────────────────────
+    deploy_grafana
+
+    # ── Aguardar e verificar Prometheus ──────────────────────────────────────
     print_info "Aguardando Prometheus inicializar (20s)..."
     sleep 20
-
     _verify_prometheus_running
+
+    # ── Recarregar config do Prometheus (após node-exporter subir) ───────────
+    print_info "Recarregando configuração do Prometheus..."
+    local PROM_CONTAINER
+    PROM_CONTAINER=$(docker ps -q -f name=prometheus_prometheus)
+    if [ -n "$PROM_CONTAINER" ]; then
+        docker exec "$PROM_CONTAINER" \
+            wget -qO- --post-data '' http://localhost:9090/-/reload >/dev/null 2>&1 || true
+        print_success "Prometheus config recarregada ✔"
+    fi
 }
 
 _verify_prometheus_running() {
@@ -174,12 +259,14 @@ _verify_prometheus_running() {
 
     if [ "$HEALTHY" = true ]; then
         print_success "Prometheus está ${BOLD}rodando e saudável${RESET} ✔"
-        docker service ls --filter name=prometheus_prometheus \
+        docker service ls --filter name=prometheus \
+            --format "    {{.Name}}  replicas={{.Replicas}}" 2>/dev/null || true
+        docker service ls --filter name=node_exporter \
             --format "    {{.Name}}  replicas={{.Replicas}}" 2>/dev/null || true
     else
         print_warning "Prometheus ainda não respondeu ao healthcheck."
-        echo -e "  ${ARROW} Ver logs:    ${DIM}docker service logs -f prometheus_prometheus${RESET}"
-        echo -e "  ${ARROW} Status:      ${DIM}docker service ps prometheus_prometheus${RESET}"
+        echo -e "  ${ARROW} Ver logs: ${DIM}docker service logs -f prometheus_prometheus${RESET}"
+        echo -e "  ${ARROW} Status:   ${DIM}docker service ps prometheus_prometheus${RESET}"
     fi
 }
 
@@ -188,12 +275,23 @@ print_prometheus_summary() {
 
     echo -e ""
     echo -e "${BOLD}${GREEN}═══════════════════════════════════════════════════════${RESET}"
-    echo -e "${BOLD}${GREEN}   ACESSO — PROMETHEUS${RESET}"
+    echo -e "${BOLD}${GREEN}   ACESSO — PROMETHEUS + GRAFANA + NODE EXPORTER${RESET}"
     echo -e "${BOLD}${GREEN}═══════════════════════════════════════════════════════${RESET}"
-    echo -e "  ${WHITE}URL:${RESET}      https://${PROMETHEUS_DOMAIN}"
-    echo -e "  ${WHITE}Usuário:${RESET}  ${PROMETHEUS_USER}"
-    echo -e "  ${WHITE}Senha:${RESET}    ${PROMETHEUS_PASSWORD}"
+    echo -e "  ${WHITE}Prometheus URL:${RESET}   https://${PROMETHEUS_DOMAIN}"
+    echo -e "  ${WHITE}Prometheus user:${RESET}  ${PROMETHEUS_USER} / ${PROMETHEUS_PASSWORD}"
+    echo -e "  ${WHITE}Grafana URL:${RESET}      https://${GRAFANA_DOMAIN}"
+    echo -e "  ${WHITE}Grafana user:${RESET}     ${GRAFANA_ADMIN_USER} / ${GRAFANA_ADMIN_PASSWORD}"
+    echo -e "  ${WHITE}Node Exporter:${RESET}    modo global (sem UI — scrape via Prometheus)"
     echo -e "${BOLD}${GREEN}═══════════════════════════════════════════════════════${RESET}"
-    echo -e "  ${YELLOW}⚠️  Salve a senha do Prometheus — não será exibida novamente!${RESET}"
+    echo -e "  ${YELLOW}⚠️  Salve as senhas acima — não serão exibidas novamente!${RESET}"
+    echo -e ""
+    echo -e "${BOLD}${CYAN}📋 PRÓXIMOS PASSOS — GRAFANA:${RESET}"
+    echo -e "  ${ARROW} 1. Acesse https://${GRAFANA_DOMAIN} e faça login"
+    echo -e "  ${ARROW} 2. Adicione Prometheus como datasource:"
+    echo -e "       ${DIM}Configuration → Data Sources → Prometheus${RESET}"
+    echo -e "       ${DIM}URL: http://prometheus_prometheus:9090${RESET}"
+    echo -e "  ${ARROW} 3. Importe dashboards prontos:"
+    echo -e "       ${DIM}Node Exporter Full: ID 1860${RESET}"
+    echo -e "       ${DIM}Docker Swarm:       ID 609${RESET}"
     echo -e ""
 }

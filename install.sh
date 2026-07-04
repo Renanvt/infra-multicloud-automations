@@ -162,20 +162,13 @@ if [[ "$_POSTIZ_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
     setup_postiz_vars
 fi
 
-# Prometheus — monitoramento
-read -p "$(echo -e "${CYAN}📊 Deseja instalar o Prometheus (monitoramento)? (s/n): ${RESET}")" _PROM_OPT < /dev/tty || true
+# Prometheus — monitoramento (instala Grafana e Node Exporter automaticamente)
+read -p "$(echo -e "${CYAN}📊 Deseja instalar o Prometheus + Grafana + Node Exporter (monitoramento)? (s/n): ${RESET}")" _PROM_OPT < /dev/tty || true
 if [[ "$_PROM_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
     ENABLE_PROMETHEUS=true
-    export ENABLE_PROMETHEUS
-    setup_prometheus_vars
-fi
-
-# Grafana — dashboards e visualização
-read -p "$(echo -e "${CYAN}📊 Deseja instalar o Grafana (dashboards)? (s/n): ${RESET}")" _GRAF_OPT < /dev/tty || true
-if [[ "$_GRAF_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
     ENABLE_GRAFANA=true
-    export ENABLE_GRAFANA
-    setup_grafana_vars
+    export ENABLE_PROMETHEUS ENABLE_GRAFANA
+    setup_prometheus_vars  # coleta vars do Prometheus e do Grafana juntos
 fi
 
 # 7. Resource Definition
@@ -199,6 +192,7 @@ fi
 
 if [ "$ENABLE_PROMETHEUS" = true ]; then
     generate_prometheus_yaml
+    generate_node_exporter_yaml
 fi
 
 if [ "$ENABLE_GRAFANA" = true ]; then

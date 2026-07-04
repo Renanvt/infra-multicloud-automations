@@ -1,0 +1,42 @@
+version: "3.7"
+
+services:
+
+  # ─── Node Exporter ────────────────────────────────────────────────────────
+  # Roda em modo global (um por nó do Swarm) — coleta métricas do host
+  node-exporter:
+    image: prom/node-exporter:latest
+
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.rootfs=/rootfs"
+      - "--path.sysfs=/host/sys"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+
+    networks:
+      - network_swarm_public
+
+    deploy:
+      # global = um container por nó do Swarm
+      mode: global
+
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+
+      restart_policy:
+        condition: on-failure
+
+      labels:
+        traefik.enable: "false"
+
+networks:
+  network_swarm_public:
+    external: true
+    name: network_swarm_public
