@@ -1,0 +1,67 @@
+version: "3.7"
+
+services:
+
+  # ─── Open Design ──────────────────────────────────────────────────────────
+  open-design:
+    image: docker.io/vanjayak/open-design:latest
+
+    environment:
+      OD_DISABLE_API_AUTH: "1"
+      OD_BIND_HOST: "0.0.0.0"
+      OD_PORT: "7456"
+      OPEN_DESIGN_ALLOWED_ORIGINS: "https://design.seudominio.com.br"
+      OD_ALLOWED_ORIGINS: "https://design.seudominio.com.br"
+
+    volumes:
+      - open_design_data:/app/.od
+
+    networks:
+      - network_swarm_public
+
+    deploy:
+      mode: replicated
+      replicas: 1
+
+      placement:
+        constraints:
+          - node.role == manager
+
+      resources:
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+        limits:
+          cpus: "1.0"
+          memory: 512M
+
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+        window: 120s
+
+      labels:
+        traefik.enable: "true"
+        traefik.swarm.network: "network_swarm_public"
+        traefik.http.routers.open-design.rule: "Host(`design.seudominio.com.br`)"
+        traefik.http.routers.open-design.entrypoints: "websecure"
+        traefik.http.routers.open-design.tls.certresolver: "letsencryptresolver"
+        traefik.http.routers.open-design.service: "open-design"
+        traefik.http.services.open-design.loadbalancer.server.port: "7456"
+        # Basic Auth — gerado com: htpasswd -nb admin SUA_SENHA | sed 's/\$/\$\$/g'
+        traefik.http.routers.open-design.middlewares: "open-design-auth"
+        traefik.http.middlewares.open-design-auth.basicauth.users: "admin:$$HASH_AQUI"
+
+volumes:
+  open_design_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/infra/{nome-do-negocio}/open-design/data
+
+networks:
+  network_swarm_public:
+    external: true
+    name: network_swarm_public

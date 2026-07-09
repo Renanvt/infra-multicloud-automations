@@ -1,0 +1,57 @@
+version: "3.7"
+
+services:
+
+  # ─── Metabase ─────────────────────────────────────────────────────────────
+  metabase:
+    image: metabase/metabase:latest
+
+    environment:
+      MB_DB_TYPE: "postgres"
+      MB_DB_DBNAME: "metabase"
+      MB_DB_PORT: "5432"
+      MB_DB_USER: "postgres"
+      MB_DB_PASS: "SENHA"
+      MB_DB_HOST: "postgres_postgres"
+      MB_SITE_URL: "https://metabase.seudominio.com.br"
+      JAVA_TIMEZONE: "America/Sao_Paulo"
+
+    networks:
+      - network_swarm_public
+
+    deploy:
+      mode: replicated
+      replicas: 1
+
+      placement:
+        constraints:
+          - node.role == manager
+
+      resources:
+        reservations:
+          cpus: "0.50"
+          memory: 512M
+        limits:
+          cpus: "2.0"
+          memory: 2048M
+
+      restart_policy:
+        condition: on-failure
+        delay: 30s
+        max_attempts: 5
+        window: 120s
+
+      labels:
+        traefik.enable: "true"
+        traefik.swarm.network: "network_swarm_public"
+        traefik.http.routers.metabase.rule: "Host(`metabase.seudominio.com.br`)"
+        traefik.http.routers.metabase.entrypoints: "websecure"
+        traefik.http.routers.metabase.priority: "1"
+        traefik.http.routers.metabase.tls.certresolver: "letsencryptresolver"
+        traefik.http.routers.metabase.service: "metabase"
+        traefik.http.services.metabase.loadbalancer.server.port: "3000"
+
+networks:
+  network_swarm_public:
+    external: true
+    name: network_swarm_public

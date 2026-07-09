@@ -66,6 +66,8 @@ MODULES=(
     "modules/postiz/setup.sh"
     "modules/prometheus/setup.sh"
     "modules/grafana/setup.sh"
+    "modules/open-design/setup.sh"
+    "modules/metabase/setup.sh"
 )
 
 for module in "${MODULES[@]}"; do
@@ -128,7 +130,9 @@ ENABLE_OPENCLAW=false
 ENABLE_POSTIZ=false
 ENABLE_PROMETHEUS=false
 ENABLE_GRAFANA=false
-export ENABLE_DIFY ENABLE_OPENCLAW ENABLE_POSTIZ ENABLE_PROMETHEUS ENABLE_GRAFANA
+ENABLE_OPEN_DESIGN=false
+ENABLE_METABASE=false
+export ENABLE_DIFY ENABLE_OPENCLAW ENABLE_POSTIZ ENABLE_PROMETHEUS ENABLE_GRAFANA ENABLE_OPEN_DESIGN ENABLE_METABASE
 
 print_step "PREPARANDO DIRETÓRIO DE INSTALAÇÃO"
 if [ ! -d "$INSTALL_DIR" ]; then
@@ -171,6 +175,22 @@ if [[ "$_PROM_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
     setup_prometheus_vars  # coleta vars do Prometheus e do Grafana juntos
 fi
 
+# Open Design — editor de design self-hosted
+read -p "$(echo -e "${CYAN}🎨 Deseja instalar o Open Design (editor de design)? (s/n): ${RESET}")" _OD_OPT < /dev/tty || true
+if [[ "$_OD_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
+    ENABLE_OPEN_DESIGN=true
+    export ENABLE_OPEN_DESIGN
+    setup_open_design_vars
+fi
+
+# Metabase — BI e análise de dados
+read -p "$(echo -e "${CYAN}📊 Deseja instalar o Metabase (BI / análise de dados)? (s/n): ${RESET}")" _MB_OPT < /dev/tty || true
+if [[ "$_MB_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
+    ENABLE_METABASE=true
+    export ENABLE_METABASE
+    setup_metabase_vars
+fi
+
 # 7. Resource Definition
 print_banner
 define_resources
@@ -197,6 +217,14 @@ fi
 
 if [ "$ENABLE_GRAFANA" = true ]; then
     generate_grafana_yaml
+fi
+
+if [ "$ENABLE_OPEN_DESIGN" = true ]; then
+    generate_open_design_yaml
+fi
+
+if [ "$ENABLE_METABASE" = true ]; then
+    generate_metabase_yaml
 fi
 
 print_success "Arquivos YAML gerados com sucesso!"

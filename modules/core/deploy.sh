@@ -289,10 +289,19 @@ deploy_services() {
         deploy_postiz
     fi
 
-    # Deploy Prometheus (monitoramento)
     # Deploy Prometheus + Grafana + Node Exporter (stack integrada)
     if [ "$ENABLE_PROMETHEUS" = true ]; then
         deploy_prometheus
+    fi
+
+    # Deploy Open Design
+    if [ "$ENABLE_OPEN_DESIGN" = true ]; then
+        deploy_open_design
+    fi
+
+    # Deploy Metabase
+    if [ "$ENABLE_METABASE" = true ]; then
+        deploy_metabase
     fi
 }
 
@@ -448,6 +457,14 @@ print_summary() {
         echo -e "   ${ARROW} Node Exporter: (modo global — sem UI)"
     fi
 
+    if [ "$ENABLE_OPEN_DESIGN" = true ]; then
+        echo -e "   ${ARROW} Open Design:   https://${OPEN_DESIGN_DOMAIN}"
+    fi
+
+    if [ "$ENABLE_METABASE" = true ]; then
+        echo -e "   ${ARROW} Metabase:       https://${METABASE_DOMAIN}"
+    fi
+
     echo ""
     echo -e "${YELLOW}⚠️  ATENÇÃO: Você tem 5 MINUTOS para criar a senha de admin no Portainer!${RESET}"
     echo -e "   Acesse agora: https://${PORTAINER_DOMAIN}"
@@ -487,6 +504,12 @@ print_summary() {
 
     # Credenciais / acesso Prometheus (inclui Grafana e Node Exporter)
     print_prometheus_summary
+
+    # Credenciais / acesso Open Design
+    print_open_design_summary
+
+    # Credenciais / acesso Metabase
+    print_metabase_summary
 
     echo ""
     echo -e "${BOLD}${CYAN}📋 PRÓXIMOS PASSOS - CHATWOOT:${RESET}"

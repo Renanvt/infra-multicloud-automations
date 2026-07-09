@@ -52,6 +52,8 @@ verify_dns() {
     echo -e "      - ${CYAN}postiz-temporal${RESET} (Postiz Temporal UI - Opcional)"
     echo -e "      - ${CYAN}prometheus${RESET}    (Prometheus - Opcional)"
     echo -e "      - ${CYAN}grafana${RESET}       (Grafana - Opcional)"
+    echo -e "      - ${CYAN}design${RESET}        (Open Design - Opcional)"
+    echo -e "      - ${CYAN}metabase${RESET}      (Metabase - Opcional)"
     echo -e ""
     echo -e "${DIM}Sugestão: Você pode usar outros prefixos como 'portainer', 'n8n', 'api', etc.${RESET}"
     echo -e "4. Use 'DNS Only' (Nuvem Cinza) no Cloudflare inicialmente para gerar SSL"
