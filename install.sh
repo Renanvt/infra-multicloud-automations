@@ -145,9 +145,25 @@ cd "$INSTALL_DIR"
 print_success "Diretório de trabalho definido: $(pwd)"
 echo ""
 
-# 4. Cloud Selection & Setup (Swarm Init)
+# 4. Cloud Selection & Setup (Swarm Init + Docker)
 print_step "SELEÇÃO DE NUVEM"
 run_cloud_setup
+
+# 4.1 Garantia de Swarm — roda sempre, independente de ser primeira execução ou rerun
+# Se o Docker já estiver instalado e o Swarm não inicializado, corrige aqui
+if command -v docker >/dev/null 2>&1; then
+    if ! docker info 2>/dev/null | grep -q "Swarm: active"; then
+        print_info "Swarm não está ativo — inicializando..."
+        docker swarm init >/dev/null 2>&1 && print_success "Docker Swarm inicializado" \
+            || print_warning "Falha ao inicializar Swarm (pode já estar em progresso)"
+    fi
+    if ! docker network ls 2>/dev/null | grep -q "network_swarm_public"; then
+        docker network create --driver overlay --attachable network_swarm_public >/dev/null 2>&1 \
+            && print_success "Rede 'network_swarm_public' criada" \
+            || print_info "Rede 'network_swarm_public' já existe"
+    fi
+    docker node update --label-add app=n8n "$(hostname)" >/dev/null 2>&1 || true
+fi
 
 # 5. DNS Verification
 verify_dns
