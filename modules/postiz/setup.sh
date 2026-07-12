@@ -528,19 +528,7 @@ TEMPORAL_CFG
     chmod -R 755 "${DATA_DIR}/uploads" "${DATA_DIR}/config" "${DATA_DIR}/dynamicconfig"
     print_success "Permissões aplicadas"
 
-    # Criar banco postiz no Postgres
-    print_info "Criando banco de dados 'postiz' no Postgres..."
-    local POSTGRES_CONTAINER
-    POSTGRES_CONTAINER=$(docker ps -q -f name=postgres_postgres)
-    if [ -n "$POSTGRES_CONTAINER" ]; then
-        if docker exec -i "$POSTGRES_CONTAINER" psql -U postgres -c "CREATE DATABASE postiz;" >/dev/null 2>&1; then
-            print_success "Banco 'postiz' criado"
-        else
-            print_warning "Banco 'postiz' já existe ou erro na criação"
-        fi
-    else
-        print_warning "Container do Postgres não encontrado — crie o banco manualmente: CREATE DATABASE postiz;"
-    fi
+    # Banco 'postiz' já criado em deploy_services (bloco central de bancos)
 
     # Deploy da stack
     print_info "Deploying Postiz..."

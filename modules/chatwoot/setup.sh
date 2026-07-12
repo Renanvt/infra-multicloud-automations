@@ -9,13 +9,41 @@ setup_chatwoot_vars() {
     
     # Email Admin
     confirm_input "${CYAN}📧 Email do Administrador Chatwoot: ${RESET}" "Email Admin:" CHATWOOT_ADMIN_EMAIL
-    
-    # Resend API Key
+
+    # Resend — perguntar se quer configurar agora
     echo -e ""
-    echo -e "${YELLOW}⚠️  IMPORTANTE: Configure DKIM, SPF e DMARC no Resend antes de continuar!${RESET}"
-    echo -e "${DIM}Acesse: https://resend.com/domains e configure os registros DNS${RESET}"
+    print_step "CONFIGURAÇÃO DE EMAIL (RESEND)"
+    echo -e "  ${WHITE}O Chatwoot usa o Resend para enviar emails:${RESET}"
+    echo -e "  ${DIM}  • Confirmação de conta e reset de senha${RESET}"
+    echo -e "  ${DIM}  • Notificações de conversas para agentes${RESET}"
+    echo -e "  ${DIM}  • Emails transacionais em geral${RESET}"
     echo -e ""
-    confirm_input "${CYAN}🔑 API Key do Resend (começa com re_): ${RESET}" "Resend Key:" CHATWOOT_RESEND_API_KEY
+    echo -e "  ${YELLOW}Para usar o Resend você precisa:${RESET}"
+    echo -e "  ${ARROW} 1. Criar conta gratuita em ${BOLD}https://resend.com${RESET}"
+    echo -e "  ${ARROW} 2. Adicionar seu domínio em ${BOLD}https://resend.com/domains${RESET}"
+    echo -e "  ${ARROW} 3. Configurar os registros DNS (DKIM, SPF, DMARC) no seu DNS"
+    echo -e "  ${ARROW} 4. Gerar uma API Key em ${BOLD}https://resend.com/api-keys${RESET}"
+    echo -e ""
+    echo -e "  ${DIM}Você pode pular agora e configurar depois editando 19.chatwoot.yaml${RESET}"
+    echo -e ""
+
+    read -p "$(echo -e "${CYAN}📧 Deseja configurar o Resend agora? (s/n): ${RESET}")" _RESEND_OPT < /dev/tty || true
+
+    if [[ "$_RESEND_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
+        echo -e ""
+        echo -e "  ${YELLOW}⚠️  Certifique-se de que os registros DNS já estão configurados no Resend${RESET}"
+        echo -e "  ${DIM}  antes de continuar, caso contrário os emails não serão entregues.${RESET}"
+        echo -e ""
+        confirm_input "${CYAN}🔑 API Key do Resend (começa com re_): ${RESET}" "Resend Key:" CHATWOOT_RESEND_API_KEY
+        CHATWOOT_RESEND_CONFIGURED=true
+        print_success "Resend configurado"
+    else
+        CHATWOOT_RESEND_API_KEY="CONFIGURE_DEPOIS"
+        CHATWOOT_RESEND_CONFIGURED=false
+        print_warning "Resend não configurado — edite SMTP_PASSWORD em 19.chatwoot.yaml depois"
+    fi
+
+    export CHATWOOT_RESEND_CONFIGURED
     
     # Gerar SECRET_KEY_BASE
     print_info "Gerando SECRET_KEY_BASE..."

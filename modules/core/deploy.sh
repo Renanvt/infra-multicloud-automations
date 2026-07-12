@@ -63,13 +63,13 @@ install_n8n_custom_nodes() {
     sleep 30
 
     N8N_CONTAINER=""
-    for i in {1..15}; do
+    for i in {1..30}; do
         N8N_CONTAINER=$(docker ps -q -f name=n8n_editor_n8n_editor)
         if [ -n "$N8N_CONTAINER" ]; then
             break
         fi
-        print_info "Aguardando container do n8n Editor... (tentativa $i/15)"
-        sleep 4
+        print_info "Aguardando container do n8n Editor... (tentativa $i/30)"
+        sleep 6
     done
 
     if [ -z "$N8N_CONTAINER" ]; then
@@ -174,48 +174,54 @@ deploy_services() {
     print_info "Aguardando bancos de dados e RabbitMQ inicializarem (30s)..."
     sleep 30
 
-    # 3. Criação do Banco N8N
-    print_step "CONFIGURANDO BANCO DE DADOS N8N"
-    print_info "Tentando conectar ao Postgres para criar o banco 'n8n'..."
-    
-    # Loop para encontrar o container ID do postgres (pode demorar um pouco no swarm)
+    # 3. Criação dos Bancos de Dados
+    print_step "CONFIGURANDO BANCO DE DADOS"
+    print_info "Aguardando Postgres ficar pronto para aceitar conexões..."
+
+    # Loop robusto: até 60s para o Postgres aceitar conexões (Swarm pode demorar)
     POSTGRES_CONTAINER=""
-    for i in {1..10}; do
+    for i in {1..30}; do
         POSTGRES_CONTAINER=$(docker ps -q -f name=postgres_postgres)
         if [ -n "$POSTGRES_CONTAINER" ]; then
-            break
-        fi
-        sleep 2
-    done
-
-    if [ -n "$POSTGRES_CONTAINER" ]; then
-        if docker exec -i "$POSTGRES_CONTAINER" psql -U postgres -c "CREATE DATABASE n8n;" >/dev/null 2>&1; then
-            print_success "Banco de dados 'n8n' criado com sucesso!"
-        else
-            print_warning "Banco de dados 'n8n' já existe ou erro na criação (verifique logs)."
-        fi
-        
-        if docker exec -i "$POSTGRES_CONTAINER" psql -U postgres -c "CREATE DATABASE evolution;" >/dev/null 2>&1; then
-            print_success "Banco de dados 'evolution' criado com sucesso!"
-        else
-            print_warning "Banco de dados 'evolution' já existe ou erro na criação (verifique logs)."
-        fi
-
-        if docker exec -i "$POSTGRES_CONTAINER" psql -U postgres -c "CREATE DATABASE chatwoot_production;" >/dev/null 2>&1; then
-            print_success "Banco de dados 'chatwoot_production' criado com sucesso!"
-        else
-            print_warning "Banco de dados 'chatwoot_production' já existe ou erro na criação (verifique logs)."
-        fi
-
-        if [ "$ENABLE_DIFY" = true ]; then
-            if docker exec -i "$POSTGRES_CONTAINER" psql -U postgres -c "CREATE DATABASE dify;" >/dev/null 2>&1; then
-                print_success "Banco de dados 'dify' criado com sucesso!"
-            else
-                print_warning "Banco de dados 'dify' já existe ou erro na criação (verifique logs)."
+            # Verificar se o Postgres já está aceitando conexões (não só rodando)
+            if docker exec -i "$POSTGRES_CONTAINER" \
+                pg_isready -U postgres >/dev/null 2>&1; then
+                print_success "Postgres pronto! (${i}x2s)"
+                break
             fi
         fi
+        echo -ne "  ${INFO} ${CYAN}Aguardando Postgres... (${i}/30)${RESET}\r"
+        sleep 2
+        POSTGRES_CONTAINER=""
+    done
+    echo ""
+
+    # Exportar para módulos reutilizarem sem buscar novamente
+    export POSTGRES_CONTAINER
+
+    if [ -n "$POSTGRES_CONTAINER" ]; then
+        # Helper local para criar banco sem duplicar código
+        _create_db() {
+            local DB="$1"
+            if docker exec -i "$POSTGRES_CONTAINER" psql -U postgres -c "CREATE DATABASE ${DB};" >/dev/null 2>&1; then
+                print_success "Banco '${DB}' criado"
+            else
+                print_warning "Banco '${DB}' já existe ou erro na criação"
+            fi
+        }
+
+        # Bancos sempre necessários
+        _create_db "n8n"
+        _create_db "evolution"
+        _create_db "chatwoot_production"
+
+        # Bancos condicionais
+        [ "$ENABLE_DIFY"     = true ] && _create_db "dify"
+        [ "$ENABLE_POSTIZ"   = true ] && _create_db "postiz"
+        [ "$ENABLE_METABASE" = true ] && _create_db "metabase"
     else
-        print_error "Não foi possível encontrar o container do Postgres. Crie os bancos 'n8n', 'evolution' e 'chatwoot' manualmente depois."
+        print_error "Postgres não respondeu após 60s. Crie os bancos manualmente:"
+        echo -e "  ${DIM}docker exec -i \$(docker ps -q -f name=postgres_postgres) psql -U postgres -c 'CREATE DATABASE n8n;'${RESET}"
     fi
 
     # 4. Deploy Aplicações
@@ -237,6 +243,10 @@ deploy_services() {
     print_info "Deploying N8N Webhook..."
     docker stack deploy --detach=true -c 10.n8n-webhooks.yaml n8n_webhook >/dev/null 2>&1
 
+    # Aguardar stacks n8n subirem antes de verificar FFmpeg e instalar nodes
+    print_info "Aguardando stacks n8n iniciarem (45s)..."
+    sleep 45
+
     # Verificar FFmpeg nos três serviços n8n
     verify_n8n_ffmpeg
 
@@ -251,9 +261,9 @@ deploy_services() {
     # Deploy OpenClaw (se escolhido no lugar do Dify)
     deploy_openclaw
 
-    # Aguardar Chatwoot inicializar
-    print_info "Aguardando Chatwoot inicializar (60s)..."
-    sleep 60
+    # Aguardar Chatwoot inicializar (Rails + Sidekiq são pesados no cold start)
+    print_info "Aguardando Chatwoot inicializar (90s)..."
+    sleep 90
     
     # Configurar Chatwoot (Migrações e Account)
     configure_chatwoot
@@ -317,13 +327,13 @@ configure_chatwoot() {
     # Encontrar o container do Chatwoot Rails
     print_info "Localizando container do Chatwoot Rails..."
     CHATWOOT_CONTAINER=""
-    for i in {1..15}; do
+    for i in {1..30}; do
         CHATWOOT_CONTAINER=$(docker ps -q -f name=chatwoot_chatwoot_rails)
         if [ -n "$CHATWOOT_CONTAINER" ]; then
             break
         fi
-        print_info "Aguardando container inicializar... (tentativa $i/15)"
-        sleep 4
+        print_info "Aguardando container inicializar... (tentativa $i/30)"
+        sleep 6
     done
     
     if [ -z "$CHATWOOT_CONTAINER" ]; then

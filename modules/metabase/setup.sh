@@ -83,20 +83,7 @@ deploy_metabase() {
     mkdir -p "${DATA_DIR}/data"
     print_success "Diretório criado"
 
-    # Criar banco no Postgres
-    print_info "Criando banco de dados 'metabase' no Postgres..."
-    local POSTGRES_CONTAINER
-    POSTGRES_CONTAINER=$(docker ps -q -f name=postgres_postgres)
-    if [ -n "$POSTGRES_CONTAINER" ]; then
-        if docker exec -i "$POSTGRES_CONTAINER" psql -U postgres -c "CREATE DATABASE metabase;" >/dev/null 2>&1; then
-            print_success "Banco 'metabase' criado"
-        else
-            print_warning "Banco 'metabase' já existe ou erro na criação"
-        fi
-    else
-        print_warning "Container do Postgres não encontrado — crie manualmente:"
-        echo -e "  ${DIM}docker exec \$(docker ps -q -f name=postgres_postgres) psql -U postgres -c \"CREATE DATABASE metabase;\"${RESET}"
-    fi
+    # Banco 'metabase' já criado em deploy_services (bloco central de bancos)
 
     # Deploy da stack
     print_info "Deploying Metabase..."

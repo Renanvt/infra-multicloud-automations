@@ -59,16 +59,43 @@ EOF
 check_recovery() {
     if [ -f "$CHECKPOINT_FILE" ]; then
         LAST_POINT=$(cat "$CHECKPOINT_FILE")
-        
+
         # Carregar variáveis de estado se existirem
         if [ -f "${LOG_DIR}/variables.env" ]; then
              source "${LOG_DIR}/variables.env"
         fi
 
-        print_warning "Recuperação de falha detectada. Último passo concluído: $LAST_POINT"
+        # Traduzir o checkpoint para linguagem humana
+        local LAST_POINT_LABEL
+        case "$LAST_POINT" in
+            inputs_collected)
+                LAST_POINT_LABEL="todas as configurações foram coletadas (senhas, domínios, chaves)" ;;
+            docker_installed)
+                LAST_POINT_LABEL="Docker foi instalado com sucesso" ;;
+            swarm_initialized)
+                LAST_POINT_LABEL="Docker Swarm foi inicializado" ;;
+            yamls_generated)
+                LAST_POINT_LABEL="todos os arquivos YAML foram gerados" ;;
+            deploy_started)
+                LAST_POINT_LABEL="deploy dos serviços foi iniciado" ;;
+            *)
+                LAST_POINT_LABEL="$LAST_POINT" ;;
+        esac
+
+        echo -e ""
+        echo -e "${BOLD}${YELLOW}╔══════════════════════════════════════════════════════════╗${RESET}"
+        echo -e "${BOLD}${YELLOW}║   ⚠️  EXECUÇÃO ANTERIOR DETECTADA                        ║${RESET}"
+        echo -e "${BOLD}${YELLOW}╚══════════════════════════════════════════════════════════╝${RESET}"
+        echo -e ""
+        echo -e "  ${WHITE}Último passo concluído:${RESET} ${BOLD}${GREEN}${LAST_POINT_LABEL}${RESET}"
+        echo -e ""
+        echo -e "  ${DIM}O script será retomado a partir do ponto onde parou.${RESET}"
+        echo -e "  ${DIM}Se quiser começar do zero, delete o checkpoint:${RESET}"
+        echo -e "  ${DIM}  rm ${CHECKPOINT_FILE}${RESET}"
+        echo -e ""
+
         log_message "WARN" "Sistema recuperado após falha em: $LAST_POINT"
-        echo -e "${YELLOW}O script foi interrompido anteriormente. Tentando retomar...${RESET}"
-        sleep 2
+        sleep 3
     fi
 }
 
