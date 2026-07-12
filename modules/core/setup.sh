@@ -86,10 +86,26 @@ setup_swarm_architecture() {
         print_info "Docker Swarm já está ativo"
     else
         print_info "Inicializando Docker Swarm..."
-        if docker swarm init 2>/dev/null; then
-            print_success "Docker Swarm inicializado"
+        # Detectar IP principal da interface de rede para --advertise-addr
+        local ADVERTISE_IP
+        ADVERTISE_IP=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1); exit}')
+        if [ -z "$ADVERTISE_IP" ]; then
+            ADVERTISE_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+        fi
+
+        local SWARM_INIT_OUTPUT
+        if [ -n "$ADVERTISE_IP" ]; then
+            SWARM_INIT_OUTPUT=$(docker swarm init --advertise-addr "$ADVERTISE_IP" 2>&1)
         else
-            print_error "Falha ao inicializar o Swarm. Execute manualmente: docker swarm init"
+            SWARM_INIT_OUTPUT=$(docker swarm init 2>&1)
+        fi
+
+        if echo "$SWARM_INIT_OUTPUT" | grep -q "Swarm initialized"; then
+            print_success "Docker Swarm inicializado (advertise-addr: ${ADVERTISE_IP:-auto})"
+        else
+            print_error "Falha ao inicializar o Swarm:"
+            echo -e "  ${RED}${SWARM_INIT_OUTPUT}${RESET}"
+            echo -e "  ${YELLOW}Tente manualmente: docker swarm init --advertise-addr SEU_IP${RESET}"
             exit 1
         fi
     fi
