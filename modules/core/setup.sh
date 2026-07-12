@@ -66,14 +66,38 @@ setup_swarm_architecture() {
     # ── Swap memory para VMs com ≤ 8 GB de RAM ────────────────────────────
     _setup_swap_if_needed
 
+    # Garantir que o Docker está rodando antes de qualquer operação
+    print_info "Verificando serviço Docker..."
+    local DOCKER_TRIES=0
+    until docker info >/dev/null 2>&1; do
+        DOCKER_TRIES=$(( DOCKER_TRIES + 1 ))
+        if [ "$DOCKER_TRIES" -ge 15 ]; then
+            print_error "Docker não respondeu após 30s. Verifique: systemctl status docker"
+            exit 1
+        fi
+        print_info "Aguardando Docker iniciar... (${DOCKER_TRIES}/15)"
+        systemctl start docker >/dev/null 2>&1 || true
+        sleep 2
+    done
+    print_success "Docker OK"
+
     # Inicializar Swarm
-    if ! docker info | grep -q "Swarm: active"; then
+    if docker info 2>/dev/null | grep -q "Swarm: active"; then
+        print_info "Docker Swarm já está ativo"
+    else
         print_info "Inicializando Docker Swarm..."
-        docker swarm init > /dev/null 2>&1 || print_warning "Swarm já iniciado ou erro ao iniciar"
+        if docker swarm init 2>/dev/null; then
+            print_success "Docker Swarm inicializado"
+        else
+            print_error "Falha ao inicializar o Swarm. Execute manualmente: docker swarm init"
+            exit 1
+        fi
     fi
     
     # Criar rede pública
-    if ! docker network ls | grep -q "network_swarm_public"; then
+    if docker network ls 2>/dev/null | grep -q "network_swarm_public"; then
+        print_info "Rede 'network_swarm_public' já existe"
+    else
         docker network create --driver overlay --attachable network_swarm_public
         print_success "Rede 'network_swarm_public' criada"
     fi
@@ -90,7 +114,7 @@ setup_swarm_architecture() {
     # Passo 1.1 Configuração Multi-VM (Labeling)
     print_step "CONFIGURAÇÃO DE NÓS (LABELING)"
     echo -e "${YELLOW}Aplicando label 'app=n8n' neste nó (Manager)...${RESET}"
-    docker node update --label-add app=n8n $(hostname) >/dev/null 2>&1
+    docker node update --label-add app=n8n $(hostname) >/dev/null 2>&1 || true
     print_success "Label 'app=n8n' aplicada"
 }
 
