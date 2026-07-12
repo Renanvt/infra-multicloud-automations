@@ -8,11 +8,47 @@ install_docker() {
             sh get-docker.sh
             systemctl enable docker
             systemctl start docker
+            rm -f get-docker.sh
         } > /tmp/docker_install.log 2>&1 &
         spinner $!
         print_success "Docker Instalado"
     else
         print_success "Docker já está instalado"
+    fi
+}
+
+# Detecta se é Debian ou Ubuntu e retorna "debian" ou "ubuntu"
+_detect_distro() {
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        echo "${ID:-debian}"
+    else
+        echo "debian"
+    fi
+}
+
+# Instala awscli de forma compatível:
+# - Ubuntu 24.04+: pip3 (o pacote apt está desatualizado)
+# - Debian / Ubuntu < 24.04: apt
+_install_awscli() {
+    if command -v aws &>/dev/null; then
+        print_info "AWS CLI já instalado"
+        return
+    fi
+
+    . /etc/os-release 2>/dev/null || true
+    local DISTRO="${ID:-debian}"
+    local VERSION_NUM="${VERSION_ID:-0}"
+
+    # Ubuntu 24+ → instalar via pip para ter versão atual
+    if [[ "$DISTRO" == "ubuntu" ]] && \
+       [[ "$(echo "$VERSION_NUM >= 24.04" | bc -l 2>/dev/null || echo 0)" == "1" ]]; then
+        print_info "Ubuntu 24+ detectado — instalando AWS CLI via pip3..."
+        apt-get install -y python3-pip python3-venv >/dev/null 2>&1
+        pip3 install awscli --break-system-packages >/dev/null 2>&1 || \
+            pip3 install awscli >/dev/null 2>&1
+    else
+        apt-get install -y awscli >/dev/null 2>&1
     fi
 }
 
@@ -37,12 +73,14 @@ setup_aws() {
 
     print_step "PREPARANDO AMBIENTE AWS"
     {
-        apt update -y && apt upgrade -y
-        apt install -y awscli unzip curl bc
+        apt-get update -y
+        apt-get upgrade -y
+        apt-get install -y unzip curl bc python3 python3-pip
     } > /tmp/aws_setup.log 2>&1 &
     spinner $!
 
     install_docker
+    _install_awscli
 
     print_info "Configurando AWS CLI..."
     mkdir -p /root/.aws
@@ -75,8 +113,9 @@ setup_gcp() {
     print_step "PREPARANDO AMBIENTE GCP"
     print_warning "Esse processo pode demorar de 5 a 15 minutos, NÃO CANCELE!"
     {
-        apt-get update && apt-get upgrade -y
-        apt-get install -y git curl gnupg lsb-release bc
+        apt-get update -y
+        apt-get upgrade -y
+        apt-get install -y git curl gnupg lsb-release bc python3
     } > /tmp/gcp_update.log 2>&1 &
     spinner $!
 

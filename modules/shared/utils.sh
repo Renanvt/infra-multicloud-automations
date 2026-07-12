@@ -166,9 +166,17 @@ check_root() {
        exit 1
     fi
 
-    # Garantir dependências básicas (Debian 12/Ubuntu)
-    if ! command -v curl &> /dev/null || ! command -v sudo &> /dev/null || ! command -v git &> /dev/null || ! command -v openssl &> /dev/null; then
-        echo -e "${YELLOW}Instalando dependências básicas (curl, sudo, git, openssl)...${RESET}"
-        apt-get update && apt-get install -y curl sudo git openssl
+    # Garantir dependências básicas — compatível com Debian 12/13 e Ubuntu 22.04/24.04
+    local MISSING=()
+    for cmd in curl sudo git openssl bc; do
+        command -v "$cmd" &>/dev/null || MISSING+=("$cmd")
+    done
+    # lsb-release pode não estar presente no Debian 13 minimal
+    dpkg -l lsb-release &>/dev/null 2>&1 || MISSING+=("lsb-release")
+
+    if [ ${#MISSING[@]} -gt 0 ]; then
+        echo -e "${YELLOW}Instalando dependências básicas: ${MISSING[*]}...${RESET}"
+        apt-get update -y >/dev/null 2>&1
+        apt-get install -y "${MISSING[@]}"
     fi
 }
