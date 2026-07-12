@@ -193,12 +193,24 @@ if [[ "$_MB_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
     setup_metabase_vars
 fi
 
-# Hermes Agent — gateway de IA + dashboard
-read -p "$(echo -e "${CYAN}🤖 Deseja instalar o Hermes Agent (gateway IA + dashboard)? (s/n): ${RESET}")" _HERMES_OPT < /dev/tty || true
-if [[ "$_HERMES_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
+# Hermes Agent — comportamento depende da RAM disponível
+: "${TOTAL_RAM_MB:=0}"
+if [ "$TOTAL_RAM_MB" -le 8192 ]; then
+    # VM pequena: instala apenas o gateway, sem dashboard, sem perguntar
+    print_info "VM com ${TOTAL_RAM_MB}MB RAM — Hermes será instalado sem Dashboard (modo terminal)."
     ENABLE_HERMES=true
-    export ENABLE_HERMES
+    HERMES_DASHBOARD_ENABLED=false
+    export ENABLE_HERMES HERMES_DASHBOARD_ENABLED
     setup_hermes_vars
+else
+    # VM grande: pergunta normalmente (gateway + dashboard)
+    read -p "$(echo -e "${CYAN}🤖 Deseja instalar o Hermes Agent (gateway IA + dashboard)? (s/n): ${RESET}")" _HERMES_OPT < /dev/tty || true
+    if [[ "$_HERMES_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
+        ENABLE_HERMES=true
+        HERMES_DASHBOARD_ENABLED=true
+        export ENABLE_HERMES HERMES_DASHBOARD_ENABLED
+        setup_hermes_vars
+    fi
 fi
 
 # 7. Resource Definition
