@@ -124,9 +124,39 @@ setup_gcp() {
     setup_swarm_architecture
 }
 
+setup_digitalocean() {
+    print_step "INICIANDO SETUP DIGITALOCEAN (DOCKER SWARM)"
+
+    check_root
+
+    echo -e "${YELLOW}⚠️  Você escolheu o setup DigitalOcean (Droplet / Swarm Architecture)${RESET}"
+    read -p "$(echo -e ${BOLD}${GREEN}"Confirmar instalação DigitalOcean? (s/n): "${RESET})" CONFIRM_DO < /dev/tty
+    if [[ ! "$CONFIRM_DO" =~ ^(s|S|sim|SIM)$ ]]; then return 1; fi
+
+    CLOUD_PROVIDER="digitalocean"
+
+    print_banner
+    print_step "PREPARANDO AMBIENTE DIGITALOCEAN"
+    print_warning "Esse processo pode demorar de 5 a 15 minutos, NÃO CANCELE!"
+    {
+        apt-get update -y
+        apt-get upgrade -y
+        apt-get install -y git curl gnupg lsb-release bc python3
+    } > /tmp/do_update.log 2>&1 &
+    spinner $!
+
+    install_docker
+
+    setup_swarm_architecture
+}
+
 select_cloud_provider() {
     local default_idx=${1:-0}
-    local options=("AWS (Single Node / Docker Swarm)" "Google Cloud (Multi Node / Docker Swarm)")
+    local options=(
+        "AWS (Single Node / Docker Swarm)"
+        "Google Cloud (Multi Node / Docker Swarm)"
+        "DigitalOcean - Droplet (Docker Swarm)"
+    )
     local selected=$default_idx
     local key
 
@@ -197,6 +227,10 @@ run_cloud_setup() {
                 ;;
             2)
                 setup_gcp
+                SETUP_STATUS=$?
+                ;;
+            3)
+                setup_digitalocean
                 SETUP_STATUS=$?
                 ;;
             *)
