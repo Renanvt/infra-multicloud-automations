@@ -68,6 +68,7 @@ MODULES=(
     "modules/grafana/setup.sh"
     "modules/open-design/setup.sh"
     "modules/metabase/setup.sh"
+    "modules/hermes/setup.sh"
 )
 
 for module in "${MODULES[@]}"; do
@@ -132,7 +133,8 @@ ENABLE_PROMETHEUS=false
 ENABLE_GRAFANA=false
 ENABLE_OPEN_DESIGN=false
 ENABLE_METABASE=false
-export ENABLE_DIFY ENABLE_OPENCLAW ENABLE_POSTIZ ENABLE_PROMETHEUS ENABLE_GRAFANA ENABLE_OPEN_DESIGN ENABLE_METABASE
+ENABLE_HERMES=false
+export ENABLE_DIFY ENABLE_OPENCLAW ENABLE_POSTIZ ENABLE_PROMETHEUS ENABLE_GRAFANA ENABLE_OPEN_DESIGN ENABLE_METABASE ENABLE_HERMES
 
 print_step "PREPARANDO DIRETÓRIO DE INSTALAÇÃO"
 if [ ! -d "$INSTALL_DIR" ]; then
@@ -191,6 +193,14 @@ if [[ "$_MB_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
     setup_metabase_vars
 fi
 
+# Hermes Agent — gateway de IA + dashboard
+read -p "$(echo -e "${CYAN}🤖 Deseja instalar o Hermes Agent (gateway IA + dashboard)? (s/n): ${RESET}")" _HERMES_OPT < /dev/tty || true
+if [[ "$_HERMES_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
+    ENABLE_HERMES=true
+    export ENABLE_HERMES
+    setup_hermes_vars
+fi
+
 # 7. Resource Definition
 print_banner
 define_resources
@@ -225,6 +235,10 @@ fi
 
 if [ "$ENABLE_METABASE" = true ]; then
     generate_metabase_yaml
+fi
+
+if [ "$ENABLE_HERMES" = true ]; then
+    generate_hermes_yaml
 fi
 
 print_success "Arquivos YAML gerados com sucesso!"

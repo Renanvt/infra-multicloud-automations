@@ -44,8 +44,9 @@ DOCKERFILE
     fi
 
     # Verificar FFmpeg dentro da imagem recém-criada
+    # Usa --entrypoint para contornar o entrypoint padrão do n8n
     print_info "Verificando FFmpeg na imagem recém-criada..."
-    FFMPEG_VER=$(docker run --rm "${IMAGE_TAG}" ffmpeg -version 2>&1 | head -1)
+    FFMPEG_VER=$(docker run --rm --entrypoint ffmpeg "${IMAGE_TAG}" -version 2>&1 | head -1)
     if echo "${FFMPEG_VER}" | grep -q "ffmpeg version"; then
         print_success "FFmpeg OK: ${FFMPEG_VER}"
     else
@@ -303,6 +304,11 @@ deploy_services() {
     if [ "$ENABLE_METABASE" = true ]; then
         deploy_metabase
     fi
+
+    # Deploy Hermes Agent
+    if [ "$ENABLE_HERMES" = true ]; then
+        deploy_hermes
+    fi
 }
 
 configure_chatwoot() {
@@ -465,6 +471,11 @@ print_summary() {
         echo -e "   ${ARROW} Metabase:       https://${METABASE_DOMAIN}"
     fi
 
+    if [ "$ENABLE_HERMES" = true ]; then
+        echo -e "   ${ARROW} Hermes Gateway:   https://${HERMES_DOMAIN}"
+        echo -e "   ${ARROW} Hermes Dashboard: https://${HERMES_DASHBOARD_DOMAIN}"
+    fi
+
     echo ""
     echo -e "${YELLOW}⚠️  ATENÇÃO: Você tem 5 MINUTOS para criar a senha de admin no Portainer!${RESET}"
     echo -e "   Acesse agora: https://${PORTAINER_DOMAIN}"
@@ -510,6 +521,9 @@ print_summary() {
 
     # Credenciais / acesso Metabase
     print_metabase_summary
+
+    # Credenciais / acesso Hermes Agent
+    print_hermes_summary
 
     echo ""
     echo -e "${BOLD}${CYAN}📋 PRÓXIMOS PASSOS - CHATWOOT:${RESET}"

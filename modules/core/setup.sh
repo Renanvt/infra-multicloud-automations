@@ -119,6 +119,8 @@ verify_dns() {
     echo -e "      - ${CYAN}grafana${RESET}       (Grafana - Opcional)"
     echo -e "      - ${CYAN}design${RESET}        (Open Design - Opcional)"
     echo -e "      - ${CYAN}metabase${RESET}      (Metabase - Opcional)"
+    echo -e "      - ${CYAN}hermes${RESET}        (Hermes Gateway - Opcional)"
+    echo -e "      - ${CYAN}hermes-dashboard${RESET} (Hermes Dashboard - Opcional)"
     echo -e ""
     echo -e "${DIM}Sugestão: Você pode usar outros prefixos como 'portainer', 'n8n', 'api', etc.${RESET}"
     echo -e "4. Use 'DNS Only' (Nuvem Cinza) no Cloudflare inicialmente para gerar SSL"
