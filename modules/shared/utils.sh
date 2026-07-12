@@ -46,57 +46,213 @@ log_message() {
 save_checkpoint() {
     local STEP_NAME="$1"
     echo "$STEP_NAME" > "$CHECKPOINT_FILE"
-    
+
     # Salvar variáveis de estado críticas para recuperação
     cat <<EOF > "${LOG_DIR}/variables.env"
 BUSINESS_NAME="${BUSINESS_NAME}"
 CLOUD_OPTION="${CLOUD_OPTION}"
 EOF
-    
+
     log_message "INFO" "Checkpoint salvo: $STEP_NAME"
 }
 
+# Salva TODAS as credenciais após coleta de inputs
+# Chamado pelo install.sh após save_checkpoint "inputs_collected"
+save_credentials() {
+    local CRED_FILE="${LOG_DIR}/credentials.env"
+
+    cat <<EOF > "$CRED_FILE"
+# ===== CREDENCIAIS SALVAS — $(date '+%Y-%m-%d %H:%M:%S') =====
+# Gerado automaticamente pelo instalador. NÃO compartilhe este arquivo.
+
+# Core
+TRAEFIK_EMAIL="${TRAEFIK_EMAIL:-}"
+PORTAINER_DOMAIN="${PORTAINER_DOMAIN:-}"
+RABBITMQ_DOMAIN="${RABBITMQ_DOMAIN:-}"
+POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-}"
+REDIS_PASSWORD="${REDIS_PASSWORD:-}"
+RABBITMQ_USER="${RABBITMQ_USER:-}"
+RABBITMQ_PASSWORD="${RABBITMQ_PASSWORD:-}"
+
+# N8N
+N8N_EDITOR_DOMAIN="${N8N_EDITOR_DOMAIN:-}"
+N8N_WEBHOOK_DOMAIN="${N8N_WEBHOOK_DOMAIN:-}"
+N8N_ENCRYPTION_KEY="${N8N_ENCRYPTION_KEY:-}"
+
+# Evolution
+EVOLUTION_DOMAIN="${EVOLUTION_DOMAIN:-}"
+EVOLUTION_API_KEY="${EVOLUTION_API_KEY:-}"
+
+# Chatwoot
+CHATWOOT_DOMAIN="${CHATWOOT_DOMAIN:-}"
+CHATWOOT_ADMIN_EMAIL="${CHATWOOT_ADMIN_EMAIL:-}"
+CHATWOOT_RESEND_API_KEY="${CHATWOOT_RESEND_API_KEY:-}"
+CHATWOOT_SECRET_KEY="${CHATWOOT_SECRET_KEY:-}"
+CHATWOOT_RESEND_CONFIGURED="${CHATWOOT_RESEND_CONFIGURED:-false}"
+
+# Módulos opcionais
+ENABLE_DIFY="${ENABLE_DIFY:-false}"
+ENABLE_OPENCLAW="${ENABLE_OPENCLAW:-false}"
+ENABLE_POSTIZ="${ENABLE_POSTIZ:-false}"
+ENABLE_PROMETHEUS="${ENABLE_PROMETHEUS:-false}"
+ENABLE_GRAFANA="${ENABLE_GRAFANA:-false}"
+ENABLE_OPEN_DESIGN="${ENABLE_OPEN_DESIGN:-false}"
+ENABLE_METABASE="${ENABLE_METABASE:-false}"
+ENABLE_HERMES="${ENABLE_HERMES:-false}"
+HERMES_DASHBOARD_ENABLED="${HERMES_DASHBOARD_ENABLED:-false}"
+
+# Dify
+DIFY_WEB_DOMAIN="${DIFY_WEB_DOMAIN:-}"
+DIFY_API_DOMAIN="${DIFY_API_DOMAIN:-}"
+DIFY_SECRET_KEY="${DIFY_SECRET_KEY:-}"
+DIFY_INNER_API_KEY="${DIFY_INNER_API_KEY:-}"
+
+# OpenClaw
+OPENCLAW_DOMAIN="${OPENCLAW_DOMAIN:-}"
+OPENCLAW_GATEWAY_TOKEN="${OPENCLAW_GATEWAY_TOKEN:-}"
+OPENCLAW_HOOKS_TOKEN="${OPENCLAW_HOOKS_TOKEN:-}"
+OPENCLAW_OPENAI_API_KEY="${OPENCLAW_OPENAI_API_KEY:-}"
+
+# Postiz
+POSTIZ_DOMAIN="${POSTIZ_DOMAIN:-}"
+POSTIZ_TEMPORAL_DOMAIN="${POSTIZ_TEMPORAL_DOMAIN:-}"
+POSTIZ_JWT_SECRET="${POSTIZ_JWT_SECRET:-}"
+POSTIZ_TEMPORAL_USER="${POSTIZ_TEMPORAL_USER:-}"
+POSTIZ_TEMPORAL_PASSWORD="${POSTIZ_TEMPORAL_PASSWORD:-}"
+POSTIZ_TEMPORAL_HASH="${POSTIZ_TEMPORAL_HASH:-}"
+
+# Prometheus / Grafana
+PROMETHEUS_DOMAIN="${PROMETHEUS_DOMAIN:-}"
+PROMETHEUS_USER="${PROMETHEUS_USER:-}"
+PROMETHEUS_PASSWORD="${PROMETHEUS_PASSWORD:-}"
+GRAFANA_DOMAIN="${GRAFANA_DOMAIN:-}"
+GRAFANA_ADMIN_USER="${GRAFANA_ADMIN_USER:-}"
+GRAFANA_ADMIN_PASSWORD="${GRAFANA_ADMIN_PASSWORD:-}"
+
+# Open Design
+OPEN_DESIGN_DOMAIN="${OPEN_DESIGN_DOMAIN:-}"
+OPEN_DESIGN_USER="${OPEN_DESIGN_USER:-}"
+OPEN_DESIGN_PASSWORD="${OPEN_DESIGN_PASSWORD:-}"
+
+# Metabase
+METABASE_DOMAIN="${METABASE_DOMAIN:-}"
+
+# Hermes
+HERMES_DOMAIN="${HERMES_DOMAIN:-}"
+HERMES_DASHBOARD_DOMAIN="${HERMES_DASHBOARD_DOMAIN:-}"
+EOF
+
+    chmod 600 "$CRED_FILE"
+    log_message "INFO" "Credenciais salvas em $CRED_FILE"
+}
+
 check_recovery() {
-    if [ -f "$CHECKPOINT_FILE" ]; then
-        LAST_POINT=$(cat "$CHECKPOINT_FILE")
+    if [ ! -f "$CHECKPOINT_FILE" ]; then return; fi
 
-        # Carregar variáveis de estado se existirem
-        if [ -f "${LOG_DIR}/variables.env" ]; then
-             source "${LOG_DIR}/variables.env"
-        fi
+    LAST_POINT=$(cat "$CHECKPOINT_FILE")
 
-        # Traduzir o checkpoint para linguagem humana
-        local LAST_POINT_LABEL
-        case "$LAST_POINT" in
-            inputs_collected)
-                LAST_POINT_LABEL="todas as configurações foram coletadas (senhas, domínios, chaves)" ;;
-            docker_installed)
-                LAST_POINT_LABEL="Docker foi instalado com sucesso" ;;
-            swarm_initialized)
-                LAST_POINT_LABEL="Docker Swarm foi inicializado" ;;
-            yamls_generated)
-                LAST_POINT_LABEL="todos os arquivos YAML foram gerados" ;;
-            deploy_started)
-                LAST_POINT_LABEL="deploy dos serviços foi iniciado" ;;
-            *)
-                LAST_POINT_LABEL="$LAST_POINT" ;;
-        esac
+    # Carregar variáveis de estado básicas
+    if [ -f "${LOG_DIR}/variables.env" ]; then
+        source "${LOG_DIR}/variables.env"
+    fi
+
+    # Traduzir checkpoint para linguagem humana
+    local LAST_POINT_LABEL
+    case "$LAST_POINT" in
+        inputs_collected) LAST_POINT_LABEL="todas as configurações foram coletadas (senhas, domínios, chaves)" ;;
+        docker_installed) LAST_POINT_LABEL="Docker foi instalado com sucesso" ;;
+        swarm_initialized) LAST_POINT_LABEL="Docker Swarm foi inicializado" ;;
+        yamls_generated)  LAST_POINT_LABEL="todos os arquivos YAML foram gerados" ;;
+        deploy_started)   LAST_POINT_LABEL="deploy dos serviços foi iniciado" ;;
+        *)                LAST_POINT_LABEL="$LAST_POINT" ;;
+    esac
+
+    echo -e ""
+    echo -e "${BOLD}${YELLOW}╔══════════════════════════════════════════════════════════╗${RESET}"
+    echo -e "${BOLD}${YELLOW}║   ⚠️  EXECUÇÃO ANTERIOR DETECTADA                        ║${RESET}"
+    echo -e "${BOLD}${YELLOW}╚══════════════════════════════════════════════════════════╝${RESET}"
+    echo -e ""
+    echo -e "  ${WHITE}Último passo concluído:${RESET} ${BOLD}${GREEN}${LAST_POINT_LABEL}${RESET}"
+    echo -e ""
+
+    # Se temos credenciais salvas, oferecer para reutilizá-las
+    local CRED_FILE="${LOG_DIR}/credentials.env"
+    if [ "$LAST_POINT" = "inputs_collected" ] && [ -f "$CRED_FILE" ]; then
+        echo -e "  ${WHITE}Credenciais da instalação anterior:${RESET}"
+        echo -e ""
+
+        # Mostrar credenciais relevantes (sem exibir senhas completas — trunca no meio)
+        _show_masked() {
+            local LABEL="$1"
+            local VALUE="$2"
+            if [ -z "$VALUE" ] || [ "$VALUE" = '""' ] || [ "$VALUE" = "" ]; then return; fi
+            # Remove aspas
+            VALUE="${VALUE//\"/}"
+            # Mascarar: mostra 4 chars + *** + 4 chars finais se > 10 chars
+            local LEN="${#VALUE}"
+            if [ "$LEN" -gt 10 ]; then
+                echo -e "    ${DIM}${LABEL}:${RESET} ${VALUE:0:4}***${VALUE: -4}"
+            else
+                echo -e "    ${DIM}${LABEL}:${RESET} ${VALUE}"
+            fi
+        }
+
+        # Ler e exibir credenciais
+        while IFS='=' read -r KEY RAW_VAL; do
+            [[ "$KEY" =~ ^#.*$ || -z "$KEY" ]] && continue
+            RAW_VAL="${RAW_VAL//\"/}"
+            case "$KEY" in
+                TRAEFIK_EMAIL)        _show_masked "Email SSL (Traefik)"    "$RAW_VAL" ;;
+                PORTAINER_DOMAIN)     _show_masked "Portainer"              "$RAW_VAL" ;;
+                POSTGRES_PASSWORD)    _show_masked "Senha Postgres"         "$RAW_VAL" ;;
+                REDIS_PASSWORD)       _show_masked "Senha Redis"            "$RAW_VAL" ;;
+                N8N_EDITOR_DOMAIN)    _show_masked "N8N Editor"             "$RAW_VAL" ;;
+                N8N_ENCRYPTION_KEY)   _show_masked "N8N Encryption Key"     "$RAW_VAL" ;;
+                EVOLUTION_DOMAIN)     _show_masked "Evolution API"          "$RAW_VAL" ;;
+                EVOLUTION_API_KEY)    _show_masked "Evolution API Key"      "$RAW_VAL" ;;
+                CHATWOOT_DOMAIN)      _show_masked "Chatwoot"               "$RAW_VAL" ;;
+                CHATWOOT_ADMIN_EMAIL) _show_masked "Chatwoot Email"         "$RAW_VAL" ;;
+            esac
+        done < "$CRED_FILE"
 
         echo -e ""
-        echo -e "${BOLD}${YELLOW}╔══════════════════════════════════════════════════════════╗${RESET}"
-        echo -e "${BOLD}${YELLOW}║   ⚠️  EXECUÇÃO ANTERIOR DETECTADA                        ║${RESET}"
-        echo -e "${BOLD}${YELLOW}╚══════════════════════════════════════════════════════════╝${RESET}"
+        echo -e "  ${WHITE}Deseja manter as credenciais da instalação anterior?${RESET}"
         echo -e ""
-        echo -e "  ${WHITE}Último passo concluído:${RESET} ${BOLD}${GREEN}${LAST_POINT_LABEL}${RESET}"
+        echo -e "  ${CYAN}[1] Manter credenciais${RESET}  — continua com as mesmas senhas e domínios"
+        echo -e "  ${CYAN}[2] Criar novas${RESET}          — descarta tudo e reconfigura do zero"
         echo -e ""
+
+        local CRED_CHOICE=""
+        while true; do
+            read -p "$(echo -e "${GREEN}Opção (1/2): ${RESET}")" CRED_CHOICE < /dev/tty || true
+            case "$CRED_CHOICE" in
+                1)
+                    print_info "Carregando credenciais anteriores..."
+                    source "$CRED_FILE"
+                    export CREDENTIALS_RESTORED=true
+                    print_success "Credenciais restauradas — etapa de configuração será pulada"
+                    break
+                    ;;
+                2)
+                    print_info "Descartando credenciais anteriores..."
+                    rm -f "$CHECKPOINT_FILE" "$CRED_FILE" "${LOG_DIR}/variables.env"
+                    export CREDENTIALS_RESTORED=false
+                    print_success "Iniciando configuração do zero"
+                    break
+                    ;;
+                *)
+                    print_error "Opção inválida. Digite 1 ou 2."
+                    ;;
+            esac
+        done
+    else
         echo -e "  ${DIM}O script será retomado a partir do ponto onde parou.${RESET}"
-        echo -e "  ${DIM}Se quiser começar do zero, delete o checkpoint:${RESET}"
-        echo -e "  ${DIM}  rm ${CHECKPOINT_FILE}${RESET}"
-        echo -e ""
-
-        log_message "WARN" "Sistema recuperado após falha em: $LAST_POINT"
+        echo -e "  ${DIM}Para começar do zero: rm ${CHECKPOINT_FILE}${RESET}"
         sleep 3
     fi
+
+    echo -e ""
+    log_message "WARN" "Recovery detectado em: $LAST_POINT"
 }
 
 # Tratamento de Erros

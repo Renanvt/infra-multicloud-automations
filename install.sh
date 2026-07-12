@@ -153,63 +153,68 @@ run_cloud_setup
 verify_dns
 
 # 6. Service Configuration (Inputs)
-setup_core_vars
-setup_n8n_vars
-setup_evolution_vars
-setup_dify_vars      # Menu: escolhe Dify, OpenClaw ou nenhum
-setup_openclaw_vars  # Coleta inputs do OpenClaw (skip se ENABLE_OPENCLAW != true)
-setup_chatwoot_vars
-
-# Postiz — pergunta separada, independente do menu Dify/OpenClaw
-read -p "$(echo -e "${CYAN}📱 Deseja instalar o Postiz (gerenciador de redes sociais)? (s/n): ${RESET}")" _POSTIZ_OPT < /dev/tty || true
-if [[ "$_POSTIZ_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
-    ENABLE_POSTIZ=true
-    export ENABLE_POSTIZ
-    setup_postiz_vars
-fi
-
-# Prometheus — monitoramento (instala Grafana e Node Exporter automaticamente)
-read -p "$(echo -e "${CYAN}📊 Deseja instalar o Prometheus + Grafana + Node Exporter (monitoramento)? (s/n): ${RESET}")" _PROM_OPT < /dev/tty || true
-if [[ "$_PROM_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
-    ENABLE_PROMETHEUS=true
-    ENABLE_GRAFANA=true
-    export ENABLE_PROMETHEUS ENABLE_GRAFANA
-    setup_prometheus_vars  # coleta vars do Prometheus e do Grafana juntos
-fi
-
-# Open Design — editor de design self-hosted
-read -p "$(echo -e "${CYAN}🎨 Deseja instalar o Open Design (editor de design)? (s/n): ${RESET}")" _OD_OPT < /dev/tty || true
-if [[ "$_OD_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
-    ENABLE_OPEN_DESIGN=true
-    export ENABLE_OPEN_DESIGN
-    setup_open_design_vars
-fi
-
-# Metabase — BI e análise de dados
-read -p "$(echo -e "${CYAN}📊 Deseja instalar o Metabase (BI / análise de dados)? (s/n): ${RESET}")" _MB_OPT < /dev/tty || true
-if [[ "$_MB_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
-    ENABLE_METABASE=true
-    export ENABLE_METABASE
-    setup_metabase_vars
-fi
-
-# Hermes Agent — comportamento depende da RAM disponível
-: "${TOTAL_RAM_MB:=0}"
-if [ "$TOTAL_RAM_MB" -le 8192 ]; then
-    # VM pequena: instala apenas o gateway, sem dashboard, sem perguntar
-    print_info "VM com ${TOTAL_RAM_MB}MB RAM — Hermes será instalado sem Dashboard (modo terminal)."
-    ENABLE_HERMES=true
-    HERMES_DASHBOARD_ENABLED=false
-    export ENABLE_HERMES HERMES_DASHBOARD_ENABLED
-    setup_hermes_vars
+# Se credenciais foram restauradas do checkpoint anterior, pula toda a coleta
+if [ "${CREDENTIALS_RESTORED:-false}" = true ]; then
+    print_step "CONFIGURAÇÃO RESTAURADA"
+    print_success "Credenciais da instalação anterior carregadas — pulando fase de configuração"
+    echo -e "  ${DIM}Domínios, senhas e chaves mantidos da execução anterior.${RESET}"
 else
-    # VM grande: pergunta normalmente (gateway + dashboard)
-    read -p "$(echo -e "${CYAN}🤖 Deseja instalar o Hermes Agent (gateway IA + dashboard)? (s/n): ${RESET}")" _HERMES_OPT < /dev/tty || true
-    if [[ "$_HERMES_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
+    setup_core_vars
+    setup_n8n_vars
+    setup_evolution_vars
+    setup_dify_vars      # Menu: escolhe Dify, OpenClaw ou nenhum
+    setup_openclaw_vars  # Coleta inputs do OpenClaw (skip se ENABLE_OPENCLAW != true)
+    setup_chatwoot_vars
+
+    # Postiz — pergunta separada, independente do menu Dify/OpenClaw
+    read -p "$(echo -e "${CYAN}📱 Deseja instalar o Postiz (gerenciador de redes sociais)? (s/n): ${RESET}")" _POSTIZ_OPT < /dev/tty || true
+    if [[ "$_POSTIZ_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
+        ENABLE_POSTIZ=true
+        export ENABLE_POSTIZ
+        setup_postiz_vars
+    fi
+
+    # Prometheus — monitoramento (instala Grafana e Node Exporter automaticamente)
+    read -p "$(echo -e "${CYAN}📊 Deseja instalar o Prometheus + Grafana + Node Exporter (monitoramento)? (s/n): ${RESET}")" _PROM_OPT < /dev/tty || true
+    if [[ "$_PROM_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
+        ENABLE_PROMETHEUS=true
+        ENABLE_GRAFANA=true
+        export ENABLE_PROMETHEUS ENABLE_GRAFANA
+        setup_prometheus_vars  # coleta vars do Prometheus e do Grafana juntos
+    fi
+
+    # Open Design — editor de design self-hosted
+    read -p "$(echo -e "${CYAN}🎨 Deseja instalar o Open Design (editor de design)? (s/n): ${RESET}")" _OD_OPT < /dev/tty || true
+    if [[ "$_OD_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
+        ENABLE_OPEN_DESIGN=true
+        export ENABLE_OPEN_DESIGN
+        setup_open_design_vars
+    fi
+
+    # Metabase — BI e análise de dados
+    read -p "$(echo -e "${CYAN}📊 Deseja instalar o Metabase (BI / análise de dados)? (s/n): ${RESET}")" _MB_OPT < /dev/tty || true
+    if [[ "$_MB_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
+        ENABLE_METABASE=true
+        export ENABLE_METABASE
+        setup_metabase_vars
+    fi
+
+    # Hermes Agent — comportamento depende da RAM disponível
+    : "${TOTAL_RAM_MB:=0}"
+    if [ "$TOTAL_RAM_MB" -le 8192 ]; then
+        print_info "VM com ${TOTAL_RAM_MB}MB RAM — Hermes será instalado sem Dashboard (modo terminal)."
         ENABLE_HERMES=true
-        HERMES_DASHBOARD_ENABLED=true
+        HERMES_DASHBOARD_ENABLED=false
         export ENABLE_HERMES HERMES_DASHBOARD_ENABLED
         setup_hermes_vars
+    else
+        read -p "$(echo -e "${CYAN}🤖 Deseja instalar o Hermes Agent (gateway IA + dashboard)? (s/n): ${RESET}")" _HERMES_OPT < /dev/tty || true
+        if [[ "$_HERMES_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
+            ENABLE_HERMES=true
+            HERMES_DASHBOARD_ENABLED=true
+            export ENABLE_HERMES HERMES_DASHBOARD_ENABLED
+            setup_hermes_vars
+        fi
     fi
 fi
 
@@ -219,6 +224,7 @@ define_resources
 
 # 8. Checkpoint
 save_checkpoint "inputs_collected"
+save_credentials  # Salva todas as credenciais para recuperação futura
 
 # 9. YAML Generation
 generate_core_yamls
