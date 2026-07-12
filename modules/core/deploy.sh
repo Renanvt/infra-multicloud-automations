@@ -413,7 +413,7 @@ configure_chatwoot() {
         print_info "Aguardando container inicializar... (tentativa $i/30)"
         sleep 6
     done
-    
+
     if [ -z "$CHATWOOT_CONTAINER" ]; then
         print_error "Container do Chatwoot Rails não encontrado!"
         print_warning "Execute manualmente após o container inicializar:"
@@ -422,6 +422,27 @@ configure_chatwoot() {
     fi
     
     print_success "Container encontrado: $CHATWOOT_CONTAINER"
+
+    # Aguardar o Rails estar totalmente pronto (porta 3000 respondendo)
+    print_info "Aguardando Rails inicializar completamente..."
+    local RAILS_READY=false
+    for i in {1..30}; do
+        if docker exec "$CHATWOOT_CONTAINER" \
+            curl -fsS http://127.0.0.1:3000/auth/sign_in >/dev/null 2>&1 || \
+           docker exec "$CHATWOOT_CONTAINER" \
+            curl -fsS -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/ 2>/dev/null | grep -qE "^[2-4]"; then
+            RAILS_READY=true
+            print_success "Rails pronto para receber comandos (${i}x5s)"
+            break
+        fi
+        echo -ne "  ${INFO} ${CYAN}Aguardando Rails ficar pronto... (${i}/30)${RESET}\r"
+        sleep 5
+    done
+    echo ""
+
+    if [ "$RAILS_READY" = false ]; then
+        print_warning "Rails demorou mais que o esperado — tentando migrações mesmo assim..."
+    fi
     
     # Executar migrações do banco de dados
     print_info "Executando migrações do banco de dados (db:chatwoot_prepare)..."
