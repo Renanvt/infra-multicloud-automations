@@ -1,6 +1,71 @@
 #!/bin/bash
 
+# ---------------------------------------------------------------------------
+# Configura swap memory se a VM tiver 8 GB de RAM ou menos
+# Swap = metade da RAM, mínimo 2 GB, máximo 4 GB
+# Só cria se não existir swap ativo no sistema
+# ---------------------------------------------------------------------------
+_setup_swap_if_needed() {
+    : "${TOTAL_RAM_MB:=0}"
+
+    # Verificar se já existe swap ativo
+    local CURRENT_SWAP
+    CURRENT_SWAP=$(free -m | awk '/^Swap:/ {print $2}')
+
+    if [ "${CURRENT_SWAP:-0}" -gt 0 ]; then
+        print_info "Swap já configurado (${CURRENT_SWAP}MB) — pulando."
+        return
+    fi
+
+    if [ "$TOTAL_RAM_MB" -le 8192 ]; then
+        print_step "CONFIGURANDO SWAP MEMORY"
+        echo -e "  ${YELLOW}VM com ${TOTAL_RAM_MB}MB RAM detectada — criando swap para estabilidade.${RESET}"
+
+        # Calcular tamanho: metade da RAM, entre 2G e 4G
+        local SWAP_MB=$(( TOTAL_RAM_MB / 2 ))
+        [ "$SWAP_MB" -lt 2048 ] && SWAP_MB=2048
+        [ "$SWAP_MB" -gt 4096 ] && SWAP_MB=4096
+        local SWAP_GB=$(( SWAP_MB / 1024 ))
+
+        local SWAP_FILE="/swapfile"
+
+        print_info "Criando swap de ${SWAP_GB}G em ${SWAP_FILE}..."
+
+        # Criar o arquivo de swap
+        if fallocate -l "${SWAP_GB}G" "$SWAP_FILE" 2>/dev/null || \
+           dd if=/dev/zero of="$SWAP_FILE" bs=1M count="$SWAP_MB" 2>/dev/null; then
+
+            chmod 600 "$SWAP_FILE"
+            mkswap "$SWAP_FILE" >/dev/null
+            swapon "$SWAP_FILE"
+            print_success "Swap de ${SWAP_GB}G ativado"
+
+            # Persistir no fstab para sobreviver a reboots
+            if ! grep -q "$SWAP_FILE" /etc/fstab; then
+                echo "${SWAP_FILE} none swap sw 0 0" >> /etc/fstab
+                print_success "Swap adicionado ao /etc/fstab (persiste após reboot)"
+            fi
+
+            # Ajustar swappiness para uso conservador (só usa swap em último caso)
+            sysctl -w vm.swappiness=10 >/dev/null 2>&1
+            if ! grep -q "vm.swappiness" /etc/sysctl.conf; then
+                echo "vm.swappiness=10" >> /etc/sysctl.conf
+            fi
+
+            print_success "vm.swappiness=10 configurado (uso conservador)"
+            echo -e "  ${DIM}Swap ativo: $(free -h | awk '/^Swap:/ {print $2}')${RESET}"
+        else
+            print_warning "Não foi possível criar o arquivo de swap — espaço em disco insuficiente?"
+        fi
+    else
+        print_info "VM com ${TOTAL_RAM_MB}MB RAM — swap não necessário."
+    fi
+}
+
 setup_swarm_architecture() {
+    # ── Swap memory para VMs com ≤ 8 GB de RAM ────────────────────────────
+    _setup_swap_if_needed
+
     # Inicializar Swarm
     if ! docker info | grep -q "Swarm: active"; then
         print_info "Inicializando Docker Swarm..."
