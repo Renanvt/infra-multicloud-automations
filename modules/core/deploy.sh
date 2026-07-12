@@ -151,6 +151,64 @@ verify_n8n_ffmpeg() {
 deploy_services() {
     print_step "INICIANDO SERVIÇOS DE INFRAESTRUTURA"
 
+    # ── Verificar se já existe instalação anterior ────────────────────────────
+    local EXISTING_STACKS
+    EXISTING_STACKS=$(docker stack ls --format "{{.Name}}" 2>/dev/null | grep -v "^$" || true)
+
+    if [ -n "$EXISTING_STACKS" ]; then
+        echo -e ""
+        echo -e "${BOLD}${YELLOW}╔══════════════════════════════════════════════════════════╗${RESET}"
+        echo -e "${BOLD}${YELLOW}║   ⚠️  STACKS EXISTENTES DETECTADAS                       ║${RESET}"
+        echo -e "${BOLD}${YELLOW}╚══════════════════════════════════════════════════════════╝${RESET}"
+        echo -e ""
+        echo -e "  As seguintes stacks já estão rodando no Swarm:"
+        echo "$EXISTING_STACKS" | while read -r STACK; do
+            echo -e "   ${ARROW} ${BOLD}${STACK}${RESET}"
+        done
+        echo -e ""
+        echo -e "  ${WHITE}Escolha o que fazer:${RESET}"
+        echo -e ""
+        echo -e "  ${CYAN}[1] Redeploy${RESET}     — Atualiza as stacks existentes sem apagar dados"
+        echo -e "        ${DIM}(docker stack deploy — seguro, preserva volumes e bancos)${RESET}"
+        echo -e ""
+        echo -e "  ${CYAN}[2] Reinstalação limpa${RESET} — Remove TODAS as stacks e faz deploy do zero"
+        echo -e "        ${RED}⚠️  ATENÇÃO: remove containers mas NÃO apaga volumes/dados${RESET}"
+        echo -e "        ${DIM}(use se os containers estiverem em estado de erro)${RESET}"
+        echo -e ""
+        echo -e "  ${CYAN}[3] Continuar assim mesmo${RESET} — Prossegue sem alterar nada"
+        echo -e ""
+
+        local DEPLOY_CHOICE=""
+        while true; do
+            read -p "$(echo -e "${GREEN}Opção (1/2/3): ${RESET}")" DEPLOY_CHOICE < /dev/tty || true
+            case "$DEPLOY_CHOICE" in
+                1)
+                    print_info "Modo redeploy — stacks existentes serão atualizadas"
+                    break
+                    ;;
+                2)
+                    print_warning "Removendo stacks existentes..."
+                    echo "$EXISTING_STACKS" | while read -r STACK; do
+                        print_info "Removendo stack: ${STACK}..."
+                        docker stack rm "$STACK" >/dev/null 2>&1 || true
+                    done
+                    print_info "Aguardando containers encerrarem (15s)..."
+                    sleep 15
+                    print_success "Stacks removidas — iniciando deploy limpo"
+                    break
+                    ;;
+                3)
+                    print_info "Prosseguindo sem alterar stacks existentes"
+                    break
+                    ;;
+                *)
+                    print_error "Opção inválida. Digite 1, 2 ou 3."
+                    ;;
+            esac
+        done
+        echo -e ""
+    fi
+
     # 0. Build da imagem customizada do n8n (antes de qualquer deploy)
     build_n8n_custom_image
 
