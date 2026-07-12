@@ -236,23 +236,40 @@ deploy_services() {
     print_step "CONFIGURANDO BANCO DE DADOS"
     print_info "Aguardando Postgres ficar pronto para aceitar conexões..."
 
-    # Loop robusto: até 60s para o Postgres aceitar conexões (Swarm pode demorar)
+    # Passo 1: esperar o container aparecer no Docker (até 60s)
     POSTGRES_CONTAINER=""
     for i in {1..30}; do
         POSTGRES_CONTAINER=$(docker ps -q -f name=postgres_postgres)
         if [ -n "$POSTGRES_CONTAINER" ]; then
-            # Verificar se o Postgres já está aceitando conexões (não só rodando)
-            if docker exec -i "$POSTGRES_CONTAINER" \
-                pg_isready -U postgres >/dev/null 2>&1; then
-                print_success "Postgres pronto! (${i}x2s)"
-                break
-            fi
+            print_success "Container Postgres encontrado: ${POSTGRES_CONTAINER}"
+            break
         fi
-        echo -ne "  ${INFO} ${CYAN}Aguardando Postgres... (${i}/30)${RESET}\r"
+        echo -ne "  ${INFO} ${CYAN}Aguardando container Postgres... (${i}/30)${RESET}\r"
         sleep 2
-        POSTGRES_CONTAINER=""
     done
     echo ""
+
+    # Passo 2: esperar o Postgres aceitar conexões (até 60s adicionais)
+    if [ -n "$POSTGRES_CONTAINER" ]; then
+        print_info "Aguardando Postgres aceitar conexões..."
+        local PG_READY=false
+        for i in {1..30}; do
+            # Usar psql diretamente — mais confiável que pg_isready em Alpine
+            if docker exec -i "$POSTGRES_CONTAINER" \
+                psql -U postgres -c "SELECT 1;" >/dev/null 2>&1; then
+                PG_READY=true
+                print_success "Postgres aceitando conexões! (${i}x2s)"
+                break
+            fi
+            echo -ne "  ${INFO} ${CYAN}Aguardando Postgres estar pronto... (${i}/30)${RESET}\r"
+            sleep 2
+        done
+        echo ""
+
+        if [ "$PG_READY" = false ]; then
+            print_warning "Postgres ainda não respondeu via psql — tentando criar bancos mesmo assim..."
+        fi
+    fi
 
     # Exportar para módulos reutilizarem sem buscar novamente
     export POSTGRES_CONTAINER
@@ -278,8 +295,11 @@ deploy_services() {
         [ "$ENABLE_POSTIZ"   = true ] && _create_db "postiz"
         [ "$ENABLE_METABASE" = true ] && _create_db "metabase"
     else
-        print_error "Postgres não respondeu após 60s. Crie os bancos manualmente:"
-        echo -e "  ${DIM}docker exec -i \$(docker ps -q -f name=postgres_postgres) psql -U postgres -c 'CREATE DATABASE n8n;'${RESET}"
+        print_error "Container do Postgres não encontrado após 60s."
+        echo -e "  ${YELLOW}Crie os bancos manualmente após o Postgres subir:${RESET}"
+        echo -e "  ${DIM}PG=\$(docker ps -q -f name=postgres_postgres)${RESET}"
+        echo -e "  ${DIM}for DB in n8n evolution chatwoot_production postiz metabase; do${RESET}"
+        echo -e "  ${DIM}  docker exec -i \$PG psql -U postgres -c \"CREATE DATABASE \$DB;\"; done${RESET}"
     fi
 
     # 4. Deploy Aplicações
