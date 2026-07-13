@@ -231,6 +231,11 @@ check_recovery() {
                     print_info "Carregando credenciais anteriores..."
                     source "$CRED_FILE"
                     export CREDENTIALS_RESTORED=true
+                    # Garantir que as flags de módulos opcionais são exportadas
+                    # (source do cred file as define mas não exporta automaticamente)
+                    export ENABLE_DIFY ENABLE_OPENCLAW ENABLE_POSTIZ
+                    export ENABLE_PROMETHEUS ENABLE_GRAFANA ENABLE_OPEN_DESIGN
+                    export ENABLE_METABASE ENABLE_HERMES HERMES_DASHBOARD_ENABLED
                     print_success "Credenciais restauradas — etapa de configuração será pulada"
                     break
                     ;;
