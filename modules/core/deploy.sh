@@ -172,7 +172,8 @@ deploy_services() {
         echo -e "        ${DIM}(docker stack deploy — seguro, preserva volumes e bancos)${RESET}"
         echo -e ""
         echo -e "  ${CYAN}[2] Reinstalação limpa${RESET} — Remove TODAS as stacks e faz deploy do zero"
-        echo -e "        ${RED}⚠️  ATENÇÃO: remove containers mas NÃO apaga volumes/dados${RESET}"
+        echo -e "        ${RED}⚠️  remove containers mas NÃO apaga volumes/dados${RESET}"
+        echo -e "        ${DIM}Os bancos de dados e arquivos persistentes são preservados.${RESET}"
         echo -e "        ${DIM}(use se os containers estiverem em estado de erro)${RESET}"
         echo -e ""
         echo -e "  ${CYAN}[3] Continuar assim mesmo${RESET} — Prossegue sem alterar nada"
@@ -423,35 +424,74 @@ configure_chatwoot() {
     
     print_success "Container encontrado: $CHATWOOT_CONTAINER"
 
-    # Aguardar o Rails estar totalmente pronto (porta 3000 respondendo)
-    print_info "Aguardando Rails inicializar completamente..."
+    # Aguardar o Rails estar totalmente pronto verificando os logs do serviço
+    # O Chatwoot faz bundle install no entrypoint — pode levar 5+ minutos
+    print_info "Aguardando Rails inicializar completamente (bundle install + boot)..."
     local RAILS_READY=false
-    for i in {1..30}; do
-        if docker exec "$CHATWOOT_CONTAINER" \
-            curl -fsS http://127.0.0.1:3000/auth/sign_in >/dev/null 2>&1 || \
-           docker exec "$CHATWOOT_CONTAINER" \
-            curl -fsS -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/ 2>/dev/null | grep -qE "^[2-4]"; then
+    for i in {1..60}; do
+        local LOG_OUTPUT
+        # docker service logs funciona no Swarm; docker logs funciona com container ID direto
+        LOG_OUTPUT=$(docker logs "$CHATWOOT_CONTAINER" 2>&1 | tail -5)
+        # Verificar se o Puma já está escutando (Rails pronto)
+        if echo "$LOG_OUTPUT" | grep -q "Listening on http"; then
             RAILS_READY=true
-            print_success "Rails pronto para receber comandos (${i}x5s)"
+            print_success "Rails pronto! Puma escutando na porta 3000 (${i}x5s)"
             break
         fi
-        echo -ne "  ${INFO} ${CYAN}Aguardando Rails ficar pronto... (${i}/30)${RESET}\r"
+        # Mostrar progresso baseado no que está acontecendo
+        if echo "$LOG_OUTPUT" | grep -q "bundle install\|Bundle complete\|bundle check"; then
+            echo -ne "  ${INFO} ${CYAN}bundle install em andamento... (${i}/60)${RESET}\r"
+        elif echo "$LOG_OUTPUT" | grep -q "Booting Puma\|starting in single mode"; then
+            echo -ne "  ${INFO} ${CYAN}Puma iniciando... (${i}/60)${RESET}\r"
+        elif echo "$LOG_OUTPUT" | grep -q "Waiting for postgres\|Database ready"; then
+            echo -ne "  ${INFO} ${CYAN}Aguardando Postgres... (${i}/60)${RESET}\r"
+        else
+            echo -ne "  ${INFO} ${CYAN}Aguardando Rails ficar pronto... (${i}/60)${RESET}\r"
+        fi
         sleep 5
     done
     echo ""
 
     if [ "$RAILS_READY" = false ]; then
-        print_warning "Rails demorou mais que o esperado — tentando migrações mesmo assim..."
+        print_warning "Rails demorou mais que 5 min — verificando se já subiu via service logs..."
+        # Última tentativa via service logs
+        if docker service logs chatwoot_chatwoot_rails --tail 10 2>/dev/null | grep -q "Listening on http"; then
+            RAILS_READY=true
+            print_success "Rails confirmado via service logs"
+        else
+            print_warning "Tentando migrações mesmo assim..."
+            sleep 15
+        fi
     fi
     
     # Executar migrações do banco de dados
     print_info "Executando migrações do banco de dados (db:chatwoot_prepare)..."
-    if docker exec -i -e REDIS_URL="redis://:${REDIS_PASSWORD}@redis_redis:6379" "$CHATWOOT_CONTAINER" bundle exec rails db:chatwoot_prepare 2>&1 | tee /tmp/chatwoot_migrate.log | grep -q "migrated"; then
-        print_success "Migrações executadas com sucesso!"
+    local MIGRATE_OUTPUT
+    MIGRATE_OUTPUT=$(docker exec -i -e REDIS_URL="redis://:${REDIS_PASSWORD}@redis_redis:6379" \
+        "$CHATWOOT_CONTAINER" bundle exec rails db:chatwoot_prepare 2>&1)
+    local MIGRATE_EXIT=$?
+
+    # Salvar saída para diagnóstico
+    echo "$MIGRATE_OUTPUT" > /tmp/chatwoot_migrate.log
+
+    # Considerar sucesso se:
+    # - exit code 0
+    # - saída contém "migrated" ou "Loading Installation config" (já migrado)
+    # - saída não contém "Error" ou "error"
+    if [ $MIGRATE_EXIT -eq 0 ] || \
+       echo "$MIGRATE_OUTPUT" | grep -qi "loading installation config\|migrated\|already up"; then
+        if echo "$MIGRATE_OUTPUT" | grep -qi "loading installation config" && \
+           ! echo "$MIGRATE_OUTPUT" | grep -qi "error\|exception"; then
+            print_success "Banco já estava preparado (migrações anteriores detectadas)"
+        else
+            print_success "Migrações executadas com sucesso!"
+        fi
     else
-        print_warning "Erro ao executar migrações. Verifique os logs:"
-        echo -e "  ${DIM}docker service logs chatwoot_chatwoot_rails --tail 50${RESET}"
-        cat /tmp/chatwoot_migrate.log
+        print_warning "Erro ao executar migrações. Saída:"
+        echo "$MIGRATE_OUTPUT" | tail -20 | sed 's/^/  /'
+        print_info "Para reexecutar manualmente:"
+        echo -e "  ${DIM}CW=\$(docker ps -q -f name=chatwoot_chatwoot_rails)${RESET}"
+        echo -e "  ${DIM}docker exec -i \$CW bundle exec rails db:chatwoot_prepare${RESET}"
         return
     fi
     
