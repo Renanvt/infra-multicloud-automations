@@ -376,8 +376,6 @@ deploy_services() {
     fi
 
     # Deploy Postiz (gerenciador de redes sociais — independente do módulo de IA)
-    print_info "Verificando módulos opcionais: POSTIZ=${ENABLE_POSTIZ} PROMETHEUS=${ENABLE_PROMETHEUS} OPEN_DESIGN=${ENABLE_OPEN_DESIGN} METABASE=${ENABLE_METABASE} HERMES=${ENABLE_HERMES}"
-
     if [ "$ENABLE_POSTIZ" = true ]; then
         deploy_postiz
     fi
@@ -608,114 +606,81 @@ end"
 print_summary() {
     # Validação dos Serviços
     print_step "VALIDANDO SERVIÇOS (DOCKER SWARM)"
-    echo -e "${CYAN}Verificando status dos serviços...${RESET}"
-    docker service ls --format "table {{.Name}}\t{{.Replicas}}\t{{.Image}}" || echo -e "${YELLOW}Não foi possível listar os serviços (Docker pode estar ocupado).${RESET}"
+    docker service ls --format "table {{.Name}}\t{{.Replicas}}\t{{.Image}}" \
+        || echo -e "${YELLOW}Não foi possível listar os serviços.${RESET}"
     echo ""
 
-    # Resumo Final
-    print_step "SETUP CONCLUÍDO!"
-    if [ "$IS_AWS" = true ]; then
-        echo -e "${GREEN}✅ Infraestrutura AWS (Swarm) implantada!${RESET}"
-    else
-        echo -e "${GREEN}✅ Infraestrutura Google Cloud (Swarm) implantada!${RESET}"
-    fi
-    echo ""
-    echo -e "${BOLD}${CYAN}Acesse seus serviços:${RESET}"
-    echo -e "   ${ARROW} Portainer: https://${PORTAINER_DOMAIN}"
-    echo -e "   ${ARROW} N8N Editor: https://${N8N_EDITOR_DOMAIN}"
-    echo -e "   ${ARROW} N8N Webhook: https://${N8N_WEBHOOK_DOMAIN}"
-    echo -e "   ${ARROW} RabbitMQ Panel: https://${RABBITMQ_DOMAIN}"
-    echo -e "   ${ARROW} Evolution API: https://${EVOLUTION_DOMAIN}"
-    echo -e "   ${ARROW} Evolution Manager: https://${EVOLUTION_DOMAIN}/manager"
-    echo -e "   ${ARROW} Chatwoot: https://${CHATWOOT_DOMAIN}"
-    
-    if [ "$ENABLE_DIFY" = true ]; then
-        echo -e "   ${ARROW} Dify Web: https://${DIFY_WEB_DOMAIN}"
-        echo -e "   ${ARROW} Dify API: https://${DIFY_API_DOMAIN}"
-    fi
+    # ── Resumo visual de instalação concluída ────────────────────────────────
+    echo -e ""
+    echo -e "${BOLD}${GREEN}╔══════════════════════════════════════════════════════════════╗${RESET}"
+    echo -e "${BOLD}${GREEN}║   🚀 INSTALAÇÃO CONCLUÍDA COM SUCESSO!                       ║${RESET}"
+    echo -e "${BOLD}${GREEN}╚══════════════════════════════════════════════════════════════╝${RESET}"
+    echo -e ""
+    echo -e "${BOLD}${CYAN}  SERVIÇOS INSTALADOS E URLs DE ACESSO:${RESET}"
+    echo -e ""
+    echo -e "  ${GREEN}✔${RESET} ${WHITE}Portainer${RESET}       https://${PORTAINER_DOMAIN}"
+    echo -e "  ${GREEN}✔${RESET} ${WHITE}N8N Editor${RESET}      https://${N8N_EDITOR_DOMAIN}"
+    echo -e "  ${GREEN}✔${RESET} ${WHITE}N8N Webhook${RESET}     https://${N8N_WEBHOOK_DOMAIN}"
+    echo -e "  ${GREEN}✔${RESET} ${WHITE}RabbitMQ${RESET}        https://${RABBITMQ_DOMAIN}"
+    echo -e "  ${GREEN}✔${RESET} ${WHITE}Evolution API${RESET}   https://${EVOLUTION_DOMAIN}"
+    echo -e "  ${GREEN}✔${RESET} ${WHITE}Chatwoot${RESET}        https://${CHATWOOT_DOMAIN}"
 
-    if [ "$ENABLE_OPENCLAW" = true ]; then
-        echo -e "   ${ARROW} OpenClaw: https://${OPENCLAW_DOMAIN}"
-    fi
+    [ "$ENABLE_DIFY"        = true ] && echo -e "  ${GREEN}✔${RESET} ${WHITE}Dify Web${RESET}        https://${DIFY_WEB_DOMAIN}"
+    [ "$ENABLE_DIFY"        = true ] && echo -e "  ${GREEN}✔${RESET} ${WHITE}Dify API${RESET}        https://${DIFY_API_DOMAIN}"
+    [ "$ENABLE_OPENCLAW"    = true ] && echo -e "  ${GREEN}✔${RESET} ${WHITE}OpenClaw${RESET}        https://${OPENCLAW_DOMAIN}"
+    [ "$ENABLE_POSTIZ"      = true ] && echo -e "  ${GREEN}✔${RESET} ${WHITE}Postiz${RESET}          https://${POSTIZ_DOMAIN}"
+    [ "$ENABLE_POSTIZ"      = true ] && echo -e "  ${GREEN}✔${RESET} ${WHITE}Postiz Temporal${RESET} https://${POSTIZ_TEMPORAL_DOMAIN}"
+    [ "$ENABLE_PROMETHEUS"  = true ] && echo -e "  ${GREEN}✔${RESET} ${WHITE}Prometheus${RESET}      https://${PROMETHEUS_DOMAIN}"
+    [ "$ENABLE_GRAFANA"     = true ] && echo -e "  ${GREEN}✔${RESET} ${WHITE}Grafana${RESET}         https://${GRAFANA_DOMAIN}"
+    [ "$ENABLE_OPEN_DESIGN" = true ] && echo -e "  ${GREEN}✔${RESET} ${WHITE}Open Design${RESET}     https://${OPEN_DESIGN_DOMAIN}"
+    [ "$ENABLE_METABASE"    = true ] && echo -e "  ${GREEN}✔${RESET} ${WHITE}Metabase${RESET}        https://${METABASE_DOMAIN}"
+    [ "$ENABLE_HERMES"      = true ] && echo -e "  ${GREEN}✔${RESET} ${WHITE}Hermes Gateway${RESET}  https://${HERMES_DOMAIN}"
+    [ "$ENABLE_HERMES"      = true ] && [ -n "$HERMES_DASHBOARD_DOMAIN" ] && \
+        echo -e "  ${GREEN}✔${RESET} ${WHITE}Hermes Dashboard${RESET} https://${HERMES_DASHBOARD_DOMAIN}"
 
-    if [ "$ENABLE_POSTIZ" = true ]; then
-        echo -e "   ${ARROW} Postiz:   https://${POSTIZ_DOMAIN}"
-        echo -e "   ${ARROW} Postiz Temporal UI: https://${POSTIZ_TEMPORAL_DOMAIN}"
-    fi
+    echo -e ""
+    echo -e "${BOLD}${YELLOW}  ⚠️  ATENÇÃO: Você tem 5 MINUTOS para criar a senha de admin no Portainer!${RESET}"
+    echo -e "     Acesse agora: ${BOLD}https://${PORTAINER_DOMAIN}${RESET}"
+    echo -e ""
+    echo -e "${BOLD}${MAGENTA}  🔒 CREDENCIAIS GERADAS — SALVE AGORA:${RESET}"
+    echo -e ""
+    echo -e "  ${WHITE}Postgres:${RESET}          ${POSTGRES_PASSWORD}"
+    echo -e "  ${WHITE}Redis:${RESET}             ${REDIS_PASSWORD}"
+    echo -e "  ${WHITE}RabbitMQ:${RESET}          ${RABBITMQ_USER} / ${RABBITMQ_PASSWORD}"
+    echo -e "  ${WHITE}N8N Encryption Key:${RESET} ${N8N_ENCRYPTION_KEY}"
+    echo -e "  ${WHITE}Evolution API Key:${RESET}  ${EVOLUTION_API_KEY}"
+    echo -e "  ${WHITE}Chatwoot Email:${RESET}    ${CHATWOOT_ADMIN_EMAIL}"
+    [ -n "$CHATWOOT_ADMIN_PASSWORD" ] && \
+        echo -e "  ${WHITE}Chatwoot Senha:${RESET}    ${CHATWOOT_ADMIN_PASSWORD}"
+    [ "$ENABLE_POSTIZ"      = true ] && [ -n "$POSTIZ_TEMPORAL_PASSWORD" ] && \
+        echo -e "  ${WHITE}Postiz Temporal:${RESET}   ${POSTIZ_TEMPORAL_USER} / ${POSTIZ_TEMPORAL_PASSWORD}"
+    [ "$ENABLE_PROMETHEUS"  = true ] && \
+        echo -e "  ${WHITE}Prometheus:${RESET}        ${PROMETHEUS_USER} / ${PROMETHEUS_PASSWORD}"
+    [ "$ENABLE_GRAFANA"     = true ] && \
+        echo -e "  ${WHITE}Grafana:${RESET}           ${GRAFANA_ADMIN_USER} / ${GRAFANA_ADMIN_PASSWORD}"
+    [ "$ENABLE_OPEN_DESIGN" = true ] && \
+        echo -e "  ${WHITE}Open Design:${RESET}       ${OPEN_DESIGN_USER} / ${OPEN_DESIGN_PASSWORD}"
 
-    if [ "$ENABLE_PROMETHEUS" = true ]; then
-        echo -e "   ${ARROW} Prometheus:   https://${PROMETHEUS_DOMAIN}"
-        echo -e "   ${ARROW} Grafana:       https://${GRAFANA_DOMAIN}"
-        echo -e "   ${ARROW} Node Exporter: (modo global — sem UI)"
-    fi
+    echo -e ""
+    echo -e "  ${DIM}Credenciais completas salvas em: /var/log/${BUSINESS_NAME}/credentials.env${RESET}"
+    echo -e ""
 
-    if [ "$ENABLE_OPEN_DESIGN" = true ]; then
-        echo -e "   ${ARROW} Open Design:   https://${OPEN_DESIGN_DOMAIN}"
-    fi
-
-    if [ "$ENABLE_METABASE" = true ]; then
-        echo -e "   ${ARROW} Metabase:       https://${METABASE_DOMAIN}"
-    fi
-
-    if [ "$ENABLE_HERMES" = true ]; then
-        echo -e "   ${ARROW} Hermes Gateway:   https://${HERMES_DOMAIN}"
-        echo -e "   ${ARROW} Hermes Dashboard: https://${HERMES_DASHBOARD_DOMAIN}"
-    fi
-
-    echo ""
-    echo -e "${YELLOW}⚠️  ATENÇÃO: Você tem 5 MINUTOS para criar a senha de admin no Portainer!${RESET}"
-    echo -e "   Acesse agora: https://${PORTAINER_DOMAIN}"
-    echo ""
-    echo -e "${BOLD}${MAGENTA}🔒 CREDENCIAIS GERADAS (SALVE AGORA!):${RESET}"
-    echo -e "   ${WHITE}Postgres Password:${RESET} ${POSTGRES_PASSWORD}"
-    echo -e "   ${WHITE}Redis Password:${RESET} ${REDIS_PASSWORD}"
-    echo -e "   ${WHITE}RabbitMQ User/Pass:${RESET} ${RABBITMQ_USER} / ${RABBITMQ_PASSWORD}"
-    echo -e "   ${WHITE}N8N Encryption Key:${RESET} ${N8N_ENCRYPTION_KEY}"
-    echo -e "   ${WHITE}Evolution Global API Key:${RESET} ${EVOLUTION_API_KEY}"
-    echo -e "   ${WHITE}Chatwoot Secret Key:${RESET} ${CHATWOOT_SECRET_KEY}"
-    echo -e "   ${WHITE}Chatwoot Admin Email:${RESET} ${CHATWOOT_ADMIN_EMAIL}"
-    if [ -n "$CHATWOOT_ADMIN_PASSWORD" ]; then
-        echo -e "   ${WHITE}Chatwoot Admin Password:${RESET} ${CHATWOOT_ADMIN_PASSWORD}"
-    fi
-    echo ""
-    echo -e "${BOLD}${YELLOW}📧 CONFIGURAÇÃO RESEND (CHATWOOT):${RESET}"
-    echo -e "   ${YELLOW}⚠️  IMPORTANTE: Configure os registros DNS no Resend:${RESET}"
-    echo -e "   ${ARROW} Acesse: https://resend.com/domains"
-    echo -e "   ${ARROW} Configure DKIM, SPF e DMARC para o domínio: ${CHATWOOT_ADMIN_EMAIL#*@}"
-    echo -e "   ${DIM}Sem essa configuração, os emails do Chatwoot não serão entregues!${RESET}"
-    
-    if [ "$ENABLE_DIFY" = true ]; then
-        echo -e "   ${WHITE}Dify Secret Key:${RESET} ${DIFY_SECRET_KEY}"
-        echo -e "   ${WHITE}Dify Inner API Key (Plugin Daemon):${RESET} ${DIFY_INNER_API_KEY}"
-    else
-        echo -e "${DIM}Dify não foi instalado.${RESET}"
+    # Avisos importantes
+    if [ "$CHATWOOT_RESEND_CONFIGURED" != "true" ]; then
+        echo -e "${BOLD}${YELLOW}  📧 RESEND (CHATWOOT) — Configure para receber emails:${RESET}"
+        echo -e "     ${ARROW} https://resend.com/domains → DKIM, SPF, DMARC para ${CHATWOOT_ADMIN_EMAIL#*@}"
+        echo -e ""
     fi
 
-    # Credenciais OpenClaw
-    print_openclaw_summary
-
-    # Credenciais / acesso Postiz
-    if [ "$ENABLE_POSTIZ" = true ]; then
-        print_postiz_summary
-    fi
-
-    # Credenciais / acesso Prometheus (inclui Grafana e Node Exporter)
-    print_prometheus_summary
-
-    # Credenciais / acesso Open Design
-    print_open_design_summary
-
-    # Credenciais / acesso Metabase
-    print_metabase_summary
-
-    # Credenciais / acesso Hermes Agent
-    print_hermes_summary
-
-    echo ""
-    echo -e "${BOLD}${CYAN}📋 PRÓXIMOS PASSOS - CHATWOOT:${RESET}"
-    echo -e "   ${ARROW} 1. Acesse https://${CHATWOOT_DOMAIN} e faça login com as credenciais acima"
-    echo -e "   ${ARROW} 2. Configure seu primeiro Inbox em Settings → Inboxes → Add Inbox"
-    echo -e "   ${ARROW} 3. (Opcional) Reabilite o healthcheck no arquivo 19.chatwoot.yaml após validar que tudo funciona"
-    echo -e "   ${DIM}Nota: As migrações e a Account já foram criadas automaticamente${RESET}"
-    echo ""
+    echo -e "${BOLD}${CYAN}  📋 PRÓXIMOS PASSOS:${RESET}"
+    echo -e "  ${ARROW} 1. Acesse o Portainer: https://${PORTAINER_DOMAIN} (crie a senha em até 5 min)"
+    echo -e "  ${ARROW} 2. Acesse o N8N: https://${N8N_EDITOR_DOMAIN}"
+    echo -e "  ${ARROW} 3. Acesse o Chatwoot: https://${CHATWOOT_DOMAIN}/app/login"
+    [ "$ENABLE_POSTIZ"   = true ] && echo -e "  ${ARROW} 4. Configure redes sociais no Postiz: https://${POSTIZ_DOMAIN}"
+    [ "$ENABLE_GRAFANA"  = true ] && echo -e "  ${ARROW} 5. Adicione Prometheus como datasource no Grafana: http://prometheus_prometheus:9090"
+    echo -e ""
+    echo -e "${BOLD}${GREEN}╔══════════════════════════════════════════════════════════════╗${RESET}"
+    echo -e "${BOLD}${GREEN}║   ✅ Tudo pronto! Bom trabalho.                              ║${RESET}"
+    echo -e "${BOLD}${GREEN}╚══════════════════════════════════════════════════════════════╝${RESET}"
+    echo -e ""
 }
