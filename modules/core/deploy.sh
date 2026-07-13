@@ -430,8 +430,13 @@ configure_chatwoot() {
     local RAILS_READY=false
     for i in {1..60}; do
         local LOG_OUTPUT
-        # docker service logs funciona no Swarm; docker logs funciona com container ID direto
-        LOG_OUTPUT=$(docker logs "$CHATWOOT_CONTAINER" 2>&1 | tail -5)
+        # Usar docker service logs que funciona tanto no primeiro deploy
+        # quanto em redeploys (pega logs da task mais recente do serviço)
+        LOG_OUTPUT=$(docker service logs chatwoot_chatwoot_rails --tail 10 --no-trunc 2>/dev/null | tail -10)
+        # Fallback para docker logs direto se service logs não retornar nada
+        if [ -z "$LOG_OUTPUT" ]; then
+            LOG_OUTPUT=$(docker logs "$CHATWOOT_CONTAINER" 2>&1 | tail -5)
+        fi
         # Verificar se o Puma já está escutando (Rails pronto)
         if echo "$LOG_OUTPUT" | grep -q "Listening on http"; then
             RAILS_READY=true
@@ -497,9 +502,14 @@ configure_chatwoot() {
     
     # Verificar se já existe Account
     print_info "Verificando se Account já existe..."
-    ACCOUNT_COUNT=$(docker exec -i -e REDIS_URL="redis://:${REDIS_PASSWORD}@redis_redis:6379" "$CHATWOOT_CONTAINER" bundle exec rails runner 'puts Account.count' 2>/dev/null | tail -1)
+    local ACCOUNT_COUNT_RAW
+    ACCOUNT_COUNT_RAW=$(docker exec -i -e REDIS_URL="redis://:${REDIS_PASSWORD}@redis_redis:6379" \
+        "$CHATWOOT_CONTAINER" bundle exec rails runner 'puts Account.count' 2>/dev/null)
+    # Extrair só o número da última linha (rails runner pode emitir logs extras)
+    ACCOUNT_COUNT=$(echo "$ACCOUNT_COUNT_RAW" | grep -E '^[0-9]+$' | tail -1)
+    ACCOUNT_COUNT="${ACCOUNT_COUNT:-0}"
     
-    if [ "${ACCOUNT_COUNT:-0}" -gt 0 ] 2>/dev/null; then
+    if [ "$ACCOUNT_COUNT" -gt 0 ] 2>/dev/null; then
         print_success "Account já existe (total: $ACCOUNT_COUNT) — Chatwoot já configurado!"
         # Exibir URL de acesso mesmo assim
         echo -e "  ${WHITE}URL:${RESET} https://${CHATWOOT_DOMAIN}/app/login"
