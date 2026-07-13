@@ -43,12 +43,6 @@ services:
         - "traefik.http.routers.api.rule=Host(\`traefik.local\`)"
         - "traefik.http.routers.api.service=api@internal"
         - "traefik.http.services.traefik.loadbalancer.server.port=8080"
-        - "traefik.http.middlewares.redirect-https.redirectscheme.scheme=https"
-        - "traefik.http.middlewares.redirect-https.redirectscheme.permanent=true"
-        - "traefik.http.routers.http-catchall.rule=hostregexp(\`{host:.+}\`)"
-        - "traefik.http.routers.http-catchall.entrypoints=web"
-        - "traefik.http.routers.http-catchall.middlewares=redirect-https@swarm"
-        - "traefik.http.routers.http-catchall.priority=1"
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "vol_certificates:/etc/traefik/letsencrypt"
