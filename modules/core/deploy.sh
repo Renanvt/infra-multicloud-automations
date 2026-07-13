@@ -499,14 +499,15 @@ configure_chatwoot() {
     print_info "Verificando se Account já existe..."
     ACCOUNT_COUNT=$(docker exec -i -e REDIS_URL="redis://:${REDIS_PASSWORD}@redis_redis:6379" "$CHATWOOT_CONTAINER" bundle exec rails runner 'puts Account.count' 2>/dev/null | tail -1)
     
-    if [ "$ACCOUNT_COUNT" -gt 0 ] 2>/dev/null; then
-        print_success "Account já existe (total: $ACCOUNT_COUNT)"
-        
-        # Verificar se usuário existe
-        USER_COUNT=$(docker exec -i -e REDIS_URL="redis://:${REDIS_PASSWORD}@redis_redis:6379" "$CHATWOOT_CONTAINER" bundle exec rails runner 'puts User.count' 2>/dev/null | tail -1)
-        if [ "$USER_COUNT" -gt 0 ] 2>/dev/null; then
-            print_success "Usuário já existe (total: $USER_COUNT)"
-            print_info "Chatwoot já está configurado!"
+    if [ "${ACCOUNT_COUNT:-0}" -gt 0 ] 2>/dev/null; then
+        print_success "Account já existe (total: $ACCOUNT_COUNT) — Chatwoot já configurado!"
+        # Exibir URL de acesso mesmo assim
+        echo -e "  ${WHITE}URL:${RESET} https://${CHATWOOT_DOMAIN}/app/login"
+        echo -e "  ${WHITE}Email:${RESET} ${CHATWOOT_ADMIN_EMAIL}"
+        if [ -n "$CHATWOOT_ADMIN_PASSWORD" ]; then
+            echo -e "  ${WHITE}Senha:${RESET} ${CHATWOOT_ADMIN_PASSWORD}"
+        else
+            echo -e "  ${YELLOW}Senha: verifique em /var/log/${BUSINESS_NAME}/credentials.env${RESET}"
         fi
         return
     fi
@@ -516,55 +517,77 @@ configure_chatwoot() {
     ADMIN_PASSWORD=$(openssl rand -base64 12 | tr -d '/+=' | head -c 16)
     
     ADMIN_NAME="${BUSINESS_NAME:-Admin}"
-    ADMIN_NAME="${ADMIN_NAME^}" # Primeira letra maiúscula
+    ADMIN_NAME="${ADMIN_NAME^}"
     
-    CREATE_USER_CMD="u = User.new(name: '${ADMIN_NAME}', email: '${CHATWOOT_ADMIN_EMAIL}', password: '${ADMIN_PASSWORD}', password_confirmation: '${ADMIN_PASSWORD}', confirmed_at: Time.now); u.skip_confirmation!; u.save!; puts 'Usuario criado!'"
+    # Tenta criar — se já existir, busca o existente
+    CREATE_USER_CMD="
+begin
+  u = User.find_by(email: '${CHATWOOT_ADMIN_EMAIL}')
+  if u.nil?
+    u = User.new(name: '${ADMIN_NAME}', email: '${CHATWOOT_ADMIN_EMAIL}', password: '${ADMIN_PASSWORD}', password_confirmation: '${ADMIN_PASSWORD}', confirmed_at: Time.now)
+    u.skip_confirmation!
+    u.save!
+    puts 'Usuario criado!'
+  else
+    puts 'Usuario existente encontrado!'
+  end
+rescue => e
+  puts \"Erro: \#{e.message}\"
+end"
+
+    USER_RESULT=$(docker exec -i -e REDIS_URL="redis://:${REDIS_PASSWORD}@redis_redis:6379" \
+        "$CHATWOOT_CONTAINER" bundle exec rails runner "$CREATE_USER_CMD" 2>&1 | tail -3)
     
-    if docker exec -i -e REDIS_URL="redis://:${REDIS_PASSWORD}@redis_redis:6379" "$CHATWOOT_CONTAINER" bundle exec rails runner "$CREATE_USER_CMD" 2>&1 | grep -q "Usuario criado"; then
-        print_success "Usuário administrador criado!"
+    if echo "$USER_RESULT" | grep -qi "criado\|existente"; then
+        print_success "Usuário pronto: ${CHATWOOT_ADMIN_EMAIL}"
     else
-        print_warning "Erro ao criar usuário. Pode já existir."
+        print_warning "Aviso na criação do usuário: $USER_RESULT"
     fi
     
-    # Criar Account e vincular ao usuário
+    # Criar Account e vincular ao usuário (ou verificar se já existe)
     print_info "Criando Account e vinculando ao usuário..."
     ACCOUNT_NAME="${BUSINESS_NAME:-Minha Empresa}"
-    ACCOUNT_NAME="${ACCOUNT_NAME^}" # Primeira letra maiúscula
+    ACCOUNT_NAME="${ACCOUNT_NAME^}"
     
-    CREATE_ACCOUNT_CMD="a = Account.create!(name: '${ACCOUNT_NAME}'); u = User.first; AccountUser.create!(account: a, user: u, role: :administrator); puts 'Conta criada e usuario vinculado'"
+    CREATE_ACCOUNT_CMD="
+begin
+  u = User.find_by(email: '${CHATWOOT_ADMIN_EMAIL}') || User.first
+  a = Account.first_or_create!(name: '${ACCOUNT_NAME}')
+  au = AccountUser.find_or_initialize_by(account: a, user: u)
+  au.role = :administrator
+  au.save!
+  puts 'Conta criada e usuario vinculado'
+rescue => e
+  puts \"Erro: \#{e.message}\"
+end"
     
-    if docker exec -i -e REDIS_URL="redis://:${REDIS_PASSWORD}@redis_redis:6379" "$CHATWOOT_CONTAINER" bundle exec rails runner "$CREATE_ACCOUNT_CMD" 2>&1 | grep -q "Conta criada"; then
-        print_success "Account criada e vinculada ao usuário!"
-        
-        # Salvar credenciais de acesso
+    ACCOUNT_RESULT=$(docker exec -i -e REDIS_URL="redis://:${REDIS_PASSWORD}@redis_redis:6379" \
+        "$CHATWOOT_CONTAINER" bundle exec rails runner "$CREATE_ACCOUNT_CMD" 2>&1 | tail -3)
+    
+    if echo "$ACCOUNT_RESULT" | grep -qi "vinculado"; then
+        print_success "Account configurada com sucesso!"
         export CHATWOOT_ADMIN_PASSWORD="$ADMIN_PASSWORD"
         
-        # Tentar enviar email de confirmação (opcional - pode falhar se DNS não configurado)
-        print_info "Tentando enviar email de confirmação..."
-        SEND_EMAIL_CMD="mail = UserMailer.confirmation_instructions(User.last, User.last.confirmation_token); mail.deliver_now; puts 'Email enviado'"
-        
-        if docker exec -i -e REDIS_URL="redis://:${REDIS_PASSWORD}@redis_redis:6379" "$CHATWOOT_CONTAINER" bundle exec rails runner "$SEND_EMAIL_CMD" 2>&1 | grep -q "Email enviado"; then
-            print_success "Email de confirmação enviado para ${CHATWOOT_ADMIN_EMAIL}"
-        else
-            print_warning "Não foi possível enviar email de confirmação."
-            echo -e "  ${YELLOW}⚠️  Verifique se os registros DNS (DKIM, SPF, DMARC) estão configurados no Resend${RESET}"
-            echo -e "  ${DIM}O usuário já está confirmado e pode fazer login normalmente.${RESET}"
+        # Salvar senha no credentials.env
+        if [ -f "${LOG_DIR}/credentials.env" ]; then
+            echo "CHATWOOT_ADMIN_PASSWORD=\"${ADMIN_PASSWORD}\"" >> "${LOG_DIR}/credentials.env"
         fi
         
-        print_success "Chatwoot configurado com sucesso!"
         echo -e ""
         echo -e "${BOLD}${GREEN}═══════════════════════════════════════════════════════${RESET}"
         echo -e "${BOLD}${GREEN}   CREDENCIAIS DE ACESSO - CHATWOOT${RESET}"
         echo -e "${BOLD}${GREEN}═══════════════════════════════════════════════════════${RESET}"
-        echo -e "  ${WHITE}URL:${RESET} https://${CHATWOOT_DOMAIN}/app/login"
+        echo -e "  ${WHITE}URL:${RESET}   https://${CHATWOOT_DOMAIN}/app/login"
         echo -e "  ${WHITE}Email:${RESET} ${CHATWOOT_ADMIN_EMAIL}"
         echo -e "  ${WHITE}Senha:${RESET} ${ADMIN_PASSWORD}"
         echo -e "${BOLD}${GREEN}═══════════════════════════════════════════════════════${RESET}"
         echo -e "  ${YELLOW}⚠️  SALVE ESTAS CREDENCIAIS AGORA!${RESET}"
         echo -e ""
     else
-        print_warning "Erro ao criar Account. Execute manualmente:"
-        echo -e "  ${DIM}docker exec -i \$(docker ps -q -f name=chatwoot_rails) -e REDIS_URL=\"redis://:${REDIS_PASSWORD}@redis_redis:6379\" bundle exec rails runner 'a = Account.create!(name: \"${ACCOUNT_NAME}\"); AccountUser.create!(account: a, user: User.first, role: :administrator)'${RESET}"
+        print_warning "Aviso na criação da Account: $ACCOUNT_RESULT"
+        echo -e "  ${DIM}Execute manualmente se necessário:${RESET}"
+        echo -e "  ${DIM}CW=\$(docker ps -q -f name=chatwoot_chatwoot_rails)${RESET}"
+        echo -e "  ${DIM}docker exec -i \$CW bundle exec rails runner 'a = Account.first_or_create!(name: \"${ACCOUNT_NAME}\"); AccountUser.find_or_create_by!(account: a, user: User.first, role: :administrator)'${RESET}"
     fi
 }
 
