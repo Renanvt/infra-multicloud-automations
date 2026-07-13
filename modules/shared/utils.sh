@@ -231,8 +231,21 @@ check_recovery() {
                     print_info "Carregando credenciais anteriores..."
                     source "$CRED_FILE"
                     export CREDENTIALS_RESTORED=true
-                    # Garantir que as flags de módulos opcionais são exportadas
-                    # (source do cred file as define mas não exporta automaticamente)
+
+                    # Reativar flags de módulos opcionais baseado nos domínios configurados
+                    # (as flags podem ter sido salvas como false se save_credentials rodou cedo demais)
+                    [ -n "$POSTIZ_DOMAIN" ]        && ENABLE_POSTIZ=true
+                    [ -n "$PROMETHEUS_DOMAIN" ]    && ENABLE_PROMETHEUS=true && ENABLE_GRAFANA=true
+                    [ -n "$GRAFANA_DOMAIN" ]       && ENABLE_GRAFANA=true
+                    [ -n "$OPEN_DESIGN_DOMAIN" ]   && ENABLE_OPEN_DESIGN=true
+                    [ -n "$METABASE_DOMAIN" ]      && ENABLE_METABASE=true
+                    [ -n "$HERMES_DOMAIN" ]        && ENABLE_HERMES=true
+                    [ -n "$OPENCLAW_DOMAIN" ]      && ENABLE_OPENCLAW=true
+                    [ -n "$DIFY_WEB_DOMAIN" ]      && ENABLE_DIFY=true
+                    # HERMES_DASHBOARD_ENABLED baseado no domínio do dashboard
+                    [ -n "$HERMES_DASHBOARD_DOMAIN" ] && HERMES_DASHBOARD_ENABLED=true || HERMES_DASHBOARD_ENABLED=false
+
+                    # Exportar tudo
                     export ENABLE_DIFY ENABLE_OPENCLAW ENABLE_POSTIZ
                     export ENABLE_PROMETHEUS ENABLE_GRAFANA ENABLE_OPEN_DESIGN
                     export ENABLE_METABASE ENABLE_HERMES HERMES_DASHBOARD_ENABLED
