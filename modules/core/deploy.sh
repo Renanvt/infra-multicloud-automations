@@ -376,6 +376,8 @@ deploy_services() {
     fi
 
     # Deploy Postiz (gerenciador de redes sociais — independente do módulo de IA)
+    print_info "Verificando módulos opcionais: POSTIZ=${ENABLE_POSTIZ} PROMETHEUS=${ENABLE_PROMETHEUS} OPEN_DESIGN=${ENABLE_OPEN_DESIGN} METABASE=${ENABLE_METABASE} HERMES=${ENABLE_HERMES}"
+
     if [ "$ENABLE_POSTIZ" = true ]; then
         deploy_postiz
     fi
