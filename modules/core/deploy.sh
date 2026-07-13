@@ -346,6 +346,7 @@ deploy_services() {
     
     # Configurar Chatwoot (Migrações e Account)
     configure_chatwoot
+    print_info "Chatwoot configurado — prosseguindo com demais módulos..."
 
     if [ "$ENABLE_DIFY" = true ]; then
         print_info "Realizando deploy do Dify AI..."
@@ -519,7 +520,8 @@ configure_chatwoot() {
         else
             echo -e "  ${YELLOW}Senha: verifique em /var/log/${BUSINESS_NAME}/credentials.env${RESET}"
         fi
-        return
+        print_info "Chatwoot OK — continuando deploy dos demais serviços..."
+        return 0
     fi
     
     # Criar usuário administrador
