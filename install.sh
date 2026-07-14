@@ -223,20 +223,18 @@ else
 
     # Hermes Agent — comportamento depende da RAM disponível
     : "${TOTAL_RAM_MB:=0}"
-    if [ "$TOTAL_RAM_MB" -le 8192 ]; then
-        print_info "VM com ${TOTAL_RAM_MB}MB RAM — Hermes será instalado sem Dashboard (modo terminal)."
+    read -p "$(echo -e "${CYAN}🤖 Deseja instalar o Hermes Agent (gateway IA)? (s/n): ${RESET}")" _HERMES_OPT < /dev/tty || true
+    if [[ "$_HERMES_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
         ENABLE_HERMES=true
-        HERMES_DASHBOARD_ENABLED=false
+        # Em VMs com <= 8GB RAM instala sem Dashboard para economizar memória
+        if [ "$TOTAL_RAM_MB" -le 8192 ]; then
+            HERMES_DASHBOARD_ENABLED=false
+            print_info "VM com ${TOTAL_RAM_MB}MB RAM — Hermes será instalado no modo Gateway-only (sem Dashboard)."
+        else
+            HERMES_DASHBOARD_ENABLED=true
+        fi
         export ENABLE_HERMES HERMES_DASHBOARD_ENABLED
         setup_hermes_vars
-    else
-        read -p "$(echo -e "${CYAN}🤖 Deseja instalar o Hermes Agent (gateway IA + dashboard)? (s/n): ${RESET}")" _HERMES_OPT < /dev/tty || true
-        if [[ "$_HERMES_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
-            ENABLE_HERMES=true
-            HERMES_DASHBOARD_ENABLED=true
-            export ENABLE_HERMES HERMES_DASHBOARD_ENABLED
-            setup_hermes_vars
-        fi
     fi
 fi
 

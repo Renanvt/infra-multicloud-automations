@@ -207,7 +207,7 @@ _verify_hermes_running() {
     local HERMES_CONTAINER=""
 
     for i in {1..8}; do
-        HERMES_CONTAINER=$(docker ps -q -f name=hermes_hermes_gateway)
+        HERMES_CONTAINER=$(docker ps -q -f name=hermes_hermes_gateway 2>/dev/null || true)
         if [ -n "$HERMES_CONTAINER" ]; then
             if docker exec "$HERMES_CONTAINER" \
                 curl -fsS http://127.0.0.1:8642/health >/dev/null 2>&1; then
@@ -226,10 +226,17 @@ _verify_hermes_running() {
         docker service ls --filter name=hermes \
             --format "    {{.Name}}  replicas={{.Replicas}}" 2>/dev/null || true
     else
+        # Hermes encerra sozinho quando não há plataformas de mensagens configuradas.
+        # Isso é comportamento esperado — não bloqueia a instalação.
         print_warning "Hermes Agent ainda não respondeu ao healthcheck."
+        echo -e "  ${YELLOW}Isso é normal se nenhuma plataforma de mensagens foi configurada.${RESET}"
+        echo -e "  ${DIM}Configure o gateway.toml em /opt/infra/${BUSINESS_NAME}/hermes/ e redeploy.${RESET}"
         echo -e "  ${ARROW} Ver logs: ${DIM}docker service logs -f hermes_hermes_gateway${RESET}"
         echo -e "  ${ARROW} Status:   ${DIM}docker service ps hermes_hermes_gateway${RESET}"
     fi
+
+    # Sempre retorna 0 — Hermes sem config não deve bloquear a instalação
+    return 0
 }
 
 print_hermes_summary() {
