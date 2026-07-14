@@ -397,7 +397,7 @@ deploy_services() {
 
     # Deploy Hermes Agent
     if [ "$ENABLE_HERMES" = true ]; then
-        deploy_hermes
+        deploy_hermes || true
     fi
 }
 
