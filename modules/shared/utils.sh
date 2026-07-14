@@ -61,11 +61,11 @@ EOF
 save_credentials() {
     local CRED_FILE="${LOG_DIR}/credentials.env"
 
-    # Usar printf para gravar hashes que contêm $$ (evita expansão do heredoc)
+    # Gravar hashes com aspas simples para que o 'source' nao expanda $ como variavel
     _write_hash() {
         local KEY="$1"
         local VAL="$2"
-        printf '%s="%s"\n' "$KEY" "$VAL" >> "$CRED_FILE"
+        printf "%s='%s'\n" "$KEY" "$VAL" >> "$CRED_FILE"
     }
 
     cat <<EOF > "$CRED_FILE"
