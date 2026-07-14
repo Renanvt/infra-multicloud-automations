@@ -905,15 +905,15 @@ Acesse seus domínios via HTTPS para confirmar os certificados válidos.
 ### Sintoma
 Ao acessar o Portainer pela primeira vez, aparece mensagem de que o tempo para criar senha expirou.
 
+### Causa
+O Portainer é reiniciado automaticamente ao final da instalação para zerar o timer de 5 minutos. Se ainda assim o tempo expirou (você demorou mais de 5 min após o fim da instalação), reinicie manualmente:
+
 ### Solução
 ```bash
-# Reiniciar o Portainer
 docker service update --force portainer_portainer
 
-# Aguardar 30 segundos
-sleep 30
-
-# Acessar imediatamente: https://painel.seu-dominio.com
+# Acesse imediatamente após o comando:
+# https://painel.seu-dominio.com
 # Você tem 5 minutos para criar a senha de admin
 ```
 

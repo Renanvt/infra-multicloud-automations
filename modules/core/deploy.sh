@@ -604,6 +604,18 @@ end"
 }
 
 print_summary() {
+    # ── Reiniciar Portainer para garantir janela de 5 min para criar senha ──
+    # O Portainer é deployado no início da instalação e expira após 5 min sem login.
+    # Como a instalação pode durar 10-20 min, forçamos um restart aqui no final
+    # para que o usuário tenha a janela completa disponível ao acessar o painel.
+    print_step "REINICIANDO PORTAINER (janela de criação de senha)"
+    if docker service update --force portainer_portainer >/dev/null 2>&1; then
+        print_success "Portainer reiniciado — janela de 5 minutos para criar senha iniciada agora"
+    else
+        print_warning "Não foi possível reiniciar o Portainer automaticamente"
+        echo -e "  ${DIM}Reinicie manualmente: docker service update --force portainer_portainer${RESET}"
+    fi
+
     # Validação dos Serviços
     print_step "VALIDANDO SERVIÇOS (DOCKER SWARM)"
     docker service ls --format "table {{.Name}}\t{{.Replicas}}\t{{.Image}}" \
@@ -639,8 +651,8 @@ print_summary() {
         echo -e "  ${GREEN}✔${RESET} ${WHITE}Hermes Dashboard${RESET} https://${HERMES_DASHBOARD_DOMAIN}"
 
     echo -e ""
-    echo -e "${BOLD}${YELLOW}  ⚠️  ATENÇÃO: Você tem 5 MINUTOS para criar a senha de admin no Portainer!${RESET}"
-    echo -e "     Acesse agora: ${BOLD}https://${PORTAINER_DOMAIN}${RESET}"
+    echo -e "${BOLD}${YELLOW}  ⚠️  ATENÇÃO: O Portainer foi reiniciado — você tem 5 MINUTOS para criar a senha de admin!${RESET}"
+    echo -e "     Acesse AGORA: ${BOLD}https://${PORTAINER_DOMAIN}${RESET}"
     echo -e ""
     echo -e "${BOLD}${MAGENTA}  🔒 CREDENCIAIS GERADAS — SALVE AGORA:${RESET}"
     echo -e ""
@@ -673,7 +685,7 @@ print_summary() {
     fi
 
     echo -e "${BOLD}${CYAN}  📋 PRÓXIMOS PASSOS:${RESET}"
-    echo -e "  ${ARROW} 1. Acesse o Portainer: https://${PORTAINER_DOMAIN} (crie a senha em até 5 min)"
+    echo -e "  ${ARROW} 1. Acesse o Portainer: https://${PORTAINER_DOMAIN} (crie a senha — timer reiniciado agora!)"
     echo -e "  ${ARROW} 2. Acesse o N8N: https://${N8N_EDITOR_DOMAIN}"
     echo -e "  ${ARROW} 3. Acesse o Chatwoot: https://${CHATWOOT_DOMAIN}/app/login"
     [ "$ENABLE_POSTIZ"   = true ] && echo -e "  ${ARROW} 4. Configure redes sociais no Postiz: https://${POSTIZ_DOMAIN}"
