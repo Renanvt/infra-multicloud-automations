@@ -206,24 +206,16 @@ _verify_hermes_running() {
     local HEALTHY=false
     local HERMES_CONTAINER=""
 
-    # Desativa set -e localmente para que falhas de docker exec não matem o script
-    set +e
-
     for i in {1..8}; do
-        HERMES_CONTAINER=$(docker ps -q -f name=hermes_hermes_gateway 2>/dev/null)
+        HERMES_CONTAINER=$(docker ps -q -f name=hermes_hermes_gateway 2>/dev/null) || HERMES_CONTAINER=""
         if [ -n "$HERMES_CONTAINER" ]; then
             docker exec "$HERMES_CONTAINER" \
-                curl -fsS http://127.0.0.1:8642/health >/dev/null 2>&1
-            if [ $? -eq 0 ]; then
-                HEALTHY=true
-                break
-            fi
+                curl -fsS http://127.0.0.1:8642/health >/dev/null 2>&1 \
+                && HEALTHY=true && break || true
         fi
         echo -ne "  ${INFO} ${CYAN}Verificando Hermes... (${i}/8)${RESET}\r"
         sleep 5
     done
-
-    set -e
 
     echo ""
 
