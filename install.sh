@@ -24,9 +24,14 @@ ensure_module() {
     local module_path="$1"
     local local_file="$SCRIPT_DIR/$module_path"
 
-    # Only download if not present
-    if [ ! -f "$local_file" ]; then
-        # echo "Downloading module: $module_path..." # Commented to avoid spamming output
+    # Sempre baixar módulos frescos quando rodando em modo installer (curl | bash)
+    # Em modo local (arquivo no disco), só baixa se não existir
+    local FORCE_DOWNLOAD=false
+    if [ -z "${BASH_SOURCE[0]}" ] || [[ "$SCRIPT_DIR" == /tmp/infra-installer-* ]]; then
+        FORCE_DOWNLOAD=true
+    fi
+
+    if [ "$FORCE_DOWNLOAD" = true ] || [ ! -f "$local_file" ]; then
         mkdir -p "$(dirname "$local_file")"
         
         if command -v curl >/dev/null 2>&1; then
@@ -121,11 +126,8 @@ CHECKPOINT_FILE="${LOG_DIR}/checkpoint"
 # Update logging to business directory (if possible/needed)
 # setup_logging # Calling again, though it might be skipped if LOGGING_ACTIVE is true
 
-check_recovery
-
-log_message "INFO" "Iniciando setup para o negócio: $BUSINESS_NAME"
-
-# Flags de módulos opcionais — inicializados como false até o usuário escolher
+# Flags de módulos opcionais — inicializados como false antes do check_recovery,
+# para que check_recovery possa sobrescrevê-los corretamente na restauração
 ENABLE_DIFY=false
 ENABLE_OPENCLAW=false
 ENABLE_POSTIZ=false
@@ -135,6 +137,10 @@ ENABLE_OPEN_DESIGN=false
 ENABLE_METABASE=false
 ENABLE_HERMES=false
 export ENABLE_DIFY ENABLE_OPENCLAW ENABLE_POSTIZ ENABLE_PROMETHEUS ENABLE_GRAFANA ENABLE_OPEN_DESIGN ENABLE_METABASE ENABLE_HERMES
+
+check_recovery
+
+log_message "INFO" "Iniciando setup para o negócio: $BUSINESS_NAME"
 
 print_step "PREPARANDO DIRETÓRIO DE INSTALAÇÃO"
 if [ ! -d "$INSTALL_DIR" ]; then
@@ -240,7 +246,7 @@ define_resources
 
 # 8. Checkpoint
 save_checkpoint "inputs_collected"
-save_credentials  # Salva todas as credenciais para recuperação futura
+# Nota: save_credentials é chamado após o deploy para gravar flags corretas
 
 # 9. YAML Generation
 generate_core_yamls
@@ -276,6 +282,9 @@ if [ "$ENABLE_HERMES" = true ]; then
 fi
 
 print_success "Arquivos YAML gerados com sucesso!"
+
+# Salvar credenciais agora — flags já estão com valores definitivos
+save_credentials
 
 # 10. Service Deployment
 deploy_services
