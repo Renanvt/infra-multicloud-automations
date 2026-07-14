@@ -287,7 +287,9 @@ save_credentials
 # 10. Service Deployment
 deploy_services
 
-# 11. Final Summary & Backup Setup
-print_summary
-setup_auto_backup
-run_backup_restore_menu
+# 11. Final Summary — sempre executa, mesmo se algo falhou antes
+print_summary || true
+
+# 12. Backup Setup (usa read — pode abortar em curl|bash, mas summary já foi exibido)
+setup_auto_backup || true
+run_backup_restore_menu || true

@@ -646,7 +646,7 @@ print_summary() {
     [ "$ENABLE_GRAFANA"     = true ] && echo -e "  ${GREEN}✔${RESET} ${WHITE}Grafana${RESET}         https://${GRAFANA_DOMAIN}"
     [ "$ENABLE_OPEN_DESIGN" = true ] && echo -e "  ${GREEN}✔${RESET} ${WHITE}Open Design${RESET}     https://${OPEN_DESIGN_DOMAIN}"
     [ "$ENABLE_METABASE"    = true ] && echo -e "  ${GREEN}✔${RESET} ${WHITE}Metabase${RESET}        https://${METABASE_DOMAIN}"
-    [ "$ENABLE_HERMES"      = true ] && echo -e "  ${GREEN}✔${RESET} ${WHITE}Hermes Gateway${RESET}  https://${HERMES_DOMAIN}"
+    [ "$ENABLE_HERMES"      = true ] && echo -e "  ${YELLOW}⚠${RESET} ${WHITE}Hermes Gateway${RESET}  https://${HERMES_DOMAIN} ${YELLOW}(requer gateway.toml — ver abaixo)${RESET}"
     [ "$ENABLE_HERMES"      = true ] && [ -n "$HERMES_DASHBOARD_DOMAIN" ] && \
         echo -e "  ${GREEN}✔${RESET} ${WHITE}Hermes Dashboard${RESET} https://${HERMES_DASHBOARD_DOMAIN}"
 
@@ -691,6 +691,29 @@ print_summary() {
     [ "$ENABLE_POSTIZ"   = true ] && echo -e "  ${ARROW} 4. Configure redes sociais no Postiz: https://${POSTIZ_DOMAIN}"
     [ "$ENABLE_GRAFANA"  = true ] && echo -e "  ${ARROW} 5. Adicione Prometheus como datasource no Grafana: http://prometheus_prometheus:9090"
     echo -e ""
+
+    # Instruções do Hermes (requer configuração manual)
+    if [ "$ENABLE_HERMES" = true ]; then
+        echo -e "${BOLD}${YELLOW}  🤖 HERMES AGENT — Configuração necessária para funcionar:${RESET}"
+        echo -e ""
+        echo -e "  O Hermes Gateway foi instalado mas precisa de um ${BOLD}gateway.toml${RESET} para subir."
+        echo -e "  Sem esse arquivo ele encerra sozinho (comportamento esperado)."
+        echo -e ""
+        echo -e "  ${ARROW} 1. Crie o arquivo de configuração:"
+        echo -e "       ${DIM}nano /opt/infra/${BUSINESS_NAME}/hermes/gateway.toml${RESET}"
+        echo -e ""
+        echo -e "  ${ARROW} 2. Exemplo mínimo para habilitar o gateway (sem plataforma):"
+        echo -e "       ${DIM}[gateway]${RESET}"
+        echo -e "       ${DIM}allow_all_users = true${RESET}"
+        echo -e ""
+        echo -e "  ${ARROW} 3. Após criar o arquivo, redeploy:"
+        echo -e "       ${DIM}cd /opt/infra/${BUSINESS_NAME}${RESET}"
+        echo -e "       ${DIM}docker stack deploy --detach=true -c 20.hermes-agent.yaml hermes${RESET}"
+        echo -e ""
+        echo -e "  ${DIM}Documentação: https://github.com/NousResearch/hermes-agent${RESET}"
+        echo -e ""
+    fi
+
     echo -e "${BOLD}${GREEN}╔══════════════════════════════════════════════════════════════╗${RESET}"
     echo -e "${BOLD}${GREEN}║   ✅ Tudo pronto! Bom trabalho.                              ║${RESET}"
     echo -e "${BOLD}${GREEN}╚══════════════════════════════════════════════════════════════╝${RESET}"
