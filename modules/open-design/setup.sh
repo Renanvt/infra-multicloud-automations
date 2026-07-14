@@ -39,11 +39,9 @@ setup_open_design_vars() {
 
 generate_open_design_yaml() {
     local DATA_DIR="/opt/infra/${BUSINESS_NAME}/open-design"
-    # Garantir que o hash tem $$ para o Traefik YAML
-    local _OD_HASH="${OPEN_DESIGN_HASH:-}"
-    if [[ "$_OD_HASH" != *'$$'* && "$_OD_HASH" == *'$'* ]]; then
-        _OD_HASH="${_OD_HASH//\$/\$\$}"
-    fi
+    # Converter $ para $$ no hash para o Traefik YAML (Docker Swarm labels requerem $$)
+    local _OD_HASH
+    _OD_HASH=$(printf '%s' "${OPEN_DESIGN_HASH:-}" | sed 's/\$/\$\$/g')
 
     cat <<EOF > 26.open-design.yaml
 version: "3.7"

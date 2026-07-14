@@ -62,12 +62,9 @@ setup_prometheus_vars() {
 
 generate_prometheus_yaml() {
     local DATA_DIR="/opt/infra/${BUSINESS_NAME}/prometheus"
-    # Garantir que o hash tem $$ para o Traefik YAML (pode ter $ simples se veio do credentials.env)
-    local _PROM_HASH="${PROMETHEUS_HASH:-}"
-    # Se não tem $$, converte $ para $$
-    if [[ "$_PROM_HASH" != *'$$'* && "$_PROM_HASH" == *'$'* ]]; then
-        _PROM_HASH="${_PROM_HASH//\$/\$\$}"
-    fi
+    # Converter $ para $$ no hash para o Traefik YAML
+    local _PROM_HASH
+    _PROM_HASH=$(printf '%s' "${PROMETHEUS_HASH:-}" | sed 's/\$/\$\$/g')
 
     cat <<EOF > 23.prometheus.yaml
 version: "3.7"

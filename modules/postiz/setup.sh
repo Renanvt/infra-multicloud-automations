@@ -186,11 +186,9 @@ _ask_social_slack() {
 
 generate_postiz_yaml() {
     local DATA_DIR="/opt/infra/${BUSINESS_NAME}/postiz"
-    # Garantir que o hash tem $$ para o Traefik YAML
-    local _PT_HASH="${POSTIZ_TEMPORAL_HASH:-}"
-    if [[ "$_PT_HASH" != *'$$'* && "$_PT_HASH" == *'$'* ]]; then
-        _PT_HASH="${_PT_HASH//\$/\$\$}"
-    fi
+    # Converter $ para $$ no hash para o Traefik YAML
+    local _PT_HASH
+    _PT_HASH=$(printf '%s' "${POSTIZ_TEMPORAL_HASH:-}" | sed 's/\$/\$\$/g')
 
     cat <<EOF > 22.postiz.yaml
 version: "3.7"
