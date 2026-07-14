@@ -125,11 +125,7 @@ deploy_open_design() {
     print_info "Deploying Open Design..."
     docker stack deploy --detach=true -c 26.open-design.yaml open_design >/dev/null 2>&1
     print_success "Stack 'open_design' enviada para o Swarm"
-
-    print_info "Aguardando Open Design inicializar (20s)..."
-    sleep 20
-
-    _verify_open_design_running
+    print_info "Open Design iniciando em background."
 }
 
 _verify_open_design_running() {

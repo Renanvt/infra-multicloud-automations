@@ -194,11 +194,16 @@ deploy_hermes() {
     docker stack deploy --detach=true -c 20.hermes-agent.yaml hermes >/dev/null 2>&1
     print_success "Stack 'hermes' enviada para o Swarm"
 
-    print_info "Aguardando Hermes inicializar (30s)..."
-    sleep 30
+    # Criar alias 'hermes' para facilitar configuração posterior
+    # O alias aponta para o container do gateway via docker exec
+    local ALIAS_LINE="alias hermes='docker exec -it \$(docker ps -q -f name=hermes_hermes_gateway) hermes'"
+    if ! grep -q "alias hermes=" /root/.bashrc 2>/dev/null; then
+        echo "$ALIAS_LINE" >> /root/.bashrc
+        print_success "Alias 'hermes' criado — use: hermes setup  ou  hermes configure"
+    fi
 
-    _verify_hermes_running
-}
+    print_info "Hermes instalado. Configure com: hermes setup  (após abrir novo terminal)"
+} 
 
 _verify_hermes_running() {
     print_step "VERIFICAÇÃO HERMES AGENT"

@@ -510,14 +510,12 @@ deploy_postiz() {
 
     local DATA_DIR="/opt/infra/${BUSINESS_NAME}/postiz"
 
-    # Criar diretórios de dados e arquivo de config do Temporal
     print_info "Criando diretórios de dados do Postiz..."
     mkdir -p "${DATA_DIR}/uploads"
     mkdir -p "${DATA_DIR}/config"
     mkdir -p "${DATA_DIR}/elasticsearch"
     mkdir -p "${DATA_DIR}/dynamicconfig"
 
-    # Arquivo de config do Temporal (obrigatório para o serviço iniciar)
     if [ ! -f "${DATA_DIR}/dynamicconfig/development-sql.yaml" ]; then
         cat > "${DATA_DIR}/dynamicconfig/development-sql.yaml" <<'TEMPORAL_CFG'
 # Temporal dynamic config — valores padrão para ambiente single-node
@@ -528,23 +526,14 @@ TEMPORAL_CFG
         print_success "Arquivo dynamicconfig/development-sql.yaml criado"
     fi
 
-    # Permissões: elasticsearch precisa de uid 1000
     chown -R 1000:1000 "${DATA_DIR}/elasticsearch"
     chmod -R 755 "${DATA_DIR}/uploads" "${DATA_DIR}/config" "${DATA_DIR}/dynamicconfig"
     print_success "Permissões aplicadas"
 
-    # Banco 'postiz' já criado em deploy_services (bloco central de bancos)
-
-    # Deploy da stack
     print_info "Deploying Postiz..."
     docker stack deploy --detach=true -c 22.postiz.yaml postiz >/dev/null 2>&1
     print_success "Stack 'postiz' enviada para o Swarm"
-
-    # Aguardar e verificar saúde
-    print_info "Aguardando Postiz inicializar (90s — Temporal + Elasticsearch levam tempo)..."
-    sleep 90
-
-    _verify_postiz_running
+    print_info "Postiz iniciando em background (Temporal + Elasticsearch levam ~2min para ficar prontos)."
 }
 
 _verify_postiz_running() {
