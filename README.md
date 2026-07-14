@@ -36,6 +36,7 @@
 - [Instalação Automatizada](#-instalação-automatizada)
 - [Pós-Instalação e Configuração](#-pós-instalação-e-configuração)
   - [Localização dos Arquivos de Configuração](#-localização-dos-arquivos-de-configuração)
+  - [Alterar Credenciais (credentials.env)](#-alterar-credenciais-credentialsenv)
   - [DNS (Cloudflare)](#dns-cloudflare)
   - [Banco de Dados N8N](#criar-banco-de-dados-n8n-obrigatório)
   - [CORS (Evolution API)](#-configurar-cors-para-evolution-api)
@@ -282,6 +283,70 @@ sudo ./install.sh
 ## 📂 Localização dos Arquivos de Configuração
 Os arquivos de configuração `.yaml` (Docker Compose) e `.env` são gerados e salvos automaticamente no diretório do negócio:
 `/opt/infra/<NOME_DO_NEGOCIO>/`
+
+## 🔑 Alterar Credenciais (credentials.env)
+
+Todas as senhas, chaves e hashes gerados durante a instalação ficam salvos em:
+
+```
+/var/log/<NOME_DO_NEGOCIO>/credentials.env
+```
+
+
+### Como visualizar as credenciais atuais
+
+```bash
+# Substitua NOME_DO_NEGOCIO pelo nome informado no instalador (ex: alobexpress)
+sudo cat /var/log/NOME_DO_NEGOCIO/credentials.env
+```
+
+### Como alterar uma senha
+
+1. Edite o YAML do serviço correspondente dentro de `/opt/infra/<NOME_DO_NEGOCIO>/`:
+
+   ```bash
+   cd /opt/infra/NOME_DO_NEGOCIO
+   nano 26.open-design.yaml   # exemplo
+   ```
+
+2. Para serviços com **Basic Auth** (Open Design, Postiz Temporal UI), gere um novo hash:
+
+   ```bash
+   # Instalar htpasswd se necessário
+   apt-get install -y apache2-utils
+
+   # Gerar hash — substitua USUARIO e NOVA_SENHA
+   htpasswd -nb USUARIO NOVA_SENHA | sed 's/\$/\$\$/g'
+   ```
+
+   Cole o hash gerado na linha `basicauth.users` do YAML correspondente.
+
+3. Redeploy o serviço para aplicar:
+
+   ```bash
+   docker stack deploy --detach=true -c 26.open-design.yaml open_design
+   docker stack deploy --detach=true -c 22.postiz.yaml postiz
+   ```
+
+4. Atualize o registro no `credentials.env`:
+
+   ```bash
+   nano /var/log/NOME_DO_NEGOCIO/credentials.env
+   # Edite apenas os valores — nunca exponha este arquivo publicamente
+   ```
+
+### Referência rápida de credenciais por serviço
+
+| Serviço | Arquivo YAML | Observação |
+|---------|-------------|------------|
+| Postgres | todos os YAMLs com `DATABASE_URL` | Alterar exige redeploy de todos os dependentes |
+| Redis | todos os YAMLs com `REDIS_URL` | Idem |
+| Open Design | `26.open-design.yaml` → `basicauth.users` | Requer hash htpasswd |
+| Postiz Temporal UI | `22.postiz.yaml` → `basicauth.users` do `postiz_temporal_ui` | Requer hash htpasswd |
+| N8N Encryption Key | `08.n8n-editor.yaml` | ⚠️ Alterar invalida credenciais salvas no N8N |
+| Evolution API Key | `18.evolution_v2.yaml` | Atualizar também nas integrações (Chatwoot, N8N) |
+
+---
 
 ## DNS (Cloudflare)
 Configure seus apontamentos DNS no Cloudflare apontando para o **IP Público** da sua VM.
@@ -918,6 +983,187 @@ O Evolution V2 requer apenas o hostname:
 Edite o arquivo `18.evolution_v2.yaml` e remova o protocolo.
 
 ---
+
+## Open Design / Postiz — Erro 502 após Migração de VM
+
+### Sintoma
+Serviços que funcionavam na VM anterior retornam 502 ou não sobem na nova VM.
+
+### Causa Raiz
+A VM nova não tem os certificados SSL gerados ainda. O Traefik precisa gerar novos certificados via Let's Encrypt, e para isso o DNS deve estar em modo **DNS Only (nuvem cinza)** no Cloudflare — nunca em Proxied durante esse processo.
+
+### Solução
+
+1. No Cloudflare, confirme que **todos os registros DNS estão em "DNS Only" (nuvem cinza)**
+
+2. Limpe os certificados antigos e force a regeneração:
+
+   ```bash
+   docker stack rm traefik
+   sleep 15
+   docker volume rm volume_swarm_certificates
+   docker volume create volume_swarm_certificates
+   cd /opt/infra/NOME_DO_NEGOCIO
+   docker stack deploy --detach=true -c 04.traefik.yaml traefik
+   docker service logs -f traefik_traefik
+   ```
+
+3. Aguarde aparecer nos logs: `"The ACME certificate has been generated"`
+
+4. Redeploy dos serviços afetados:
+
+   ```bash
+   docker stack deploy --detach=true -c 26.open-design.yaml open_design
+   docker stack deploy --detach=true -c 22.postiz.yaml postiz
+   ```
+
+---
+
+## Open Design — Container em Erro / Não Inicia
+
+### Sintoma
+`docker service ps open_design_open-design` mostra estado de erro ou `0/1` réplicas, mesmo com YAML correto.
+
+### Diagnóstico
+
+```bash
+docker service logs -f open_design_open-design
+docker service ps open_design_open-design --no-trunc
+```
+
+### Causa Raiz: Imagem Incorreta
+
+A imagem `vanjayak/open-design` está desatualizada. A imagem oficial é `ghcr.io/nexu-io/od:latest`, com variáveis de ambiente diferentes.
+
+| Variável antiga (incorreta) | Variável correta |
+|-----------------------------|-----------------|
+| `OD_DISABLE_API_AUTH: "1"` | `OPEN_DESIGN_DISABLE_API_AUTH: "1"` |
+| `OD_BIND_HOST: "0.0.0.0"` | *(não necessário)* |
+| `OD_PORT: "7456"` | *(não necessário)* |
+| `OD_ALLOWED_ORIGINS: "..."` | `OPEN_DESIGN_ALLOWED_ORIGINS: "..."` |
+
+### Solução
+
+```bash
+docker stack rm open_design
+sleep 10
+
+# Edite o YAML: troque a imagem e as variáveis
+nano /opt/infra/NOME_DO_NEGOCIO/26.open-design.yaml
+
+docker stack deploy --detach=true -c 26.open-design.yaml open_design
+docker service logs -f open_design_open-design
+```
+
+**Outras causas comuns**
+
+```bash
+# Diretório de dados não existe
+mkdir -p /opt/infra/NOME_DO_NEGOCIO/open-design/data
+chmod 755 /opt/infra/NOME_DO_NEGOCIO/open-design/data
+docker service update --force open_design_open-design
+
+# Hash Basic Auth inválido — regere com:
+apt-get install -y apache2-utils
+htpasswd -nb USUARIO SENHA | sed 's/\$/\$\$/g'
+# Cole no yaml e redeploy
+docker stack deploy --detach=true -c 26.open-design.yaml open_design
+```
+
+---
+
+## Postiz — Erro 502 (APIs retornam status 502)
+
+### Sintoma
+O frontend carrega mas as chamadas de API (`/api/user/self`, `/api/copilot/chat`, etc.) retornam 502. Console mostra `TypeError: XX.find is not a function`.
+
+### Causa
+O container do Postiz está em loop de restart aguardando o Temporal + Elasticsearch ficarem prontos. O Temporal depende do Elasticsearch, que pode levar 2-3 minutos para inicializar.
+
+### Solução
+
+```bash
+# 1. Verificar estado de todos os serviços do Postiz
+docker service ls | grep postiz
+
+# 2. Ver logs do Elasticsearch (deve mostrar "started" antes do Temporal iniciar)
+docker service logs -f postiz_postiz_temporal_elasticsearch
+
+# 3. Ver logs do Temporal
+docker service logs -f postiz_postiz_temporal
+
+# 4. Se o Elasticsearch estiver com erro de permissão no diretório:
+chown -R 1000:1000 /opt/infra/NOME_DO_NEGOCIO/postiz/elasticsearch
+docker service update --force postiz_postiz_temporal_elasticsearch
+
+# 5. Aguardar o Temporal ficar pronto e reiniciar o Postiz
+docker service update --force postiz_postiz
+```
+
+### Verificar ordem de inicialização
+O Postiz precisa que os serviços subam nesta ordem:
+1. `postiz_temporal_elasticsearch` → healthy
+2. `postiz_temporal` → running
+3. `postiz` → healthy
+
+---
+
+## Hermes Agent — Gateway Para com WARNING (Sem Plataformas Configuradas)
+
+### Sintoma
+O container do Hermes sobe mas para imediatamente com mensagens como:
+```
+WARNING gateway.run: No messaging platforms enabled.
+WARNING gateway.run: No env user allowlists configured.
+```
+`docker service ps hermes_hermes_gateway` mostra `0/1` ou status de erro.
+
+### Causa
+O Hermes Gateway requer ao menos uma plataforma de mensagens configurada (Telegram, WhatsApp, etc.) e/ou uma allowlist de usuários para funcionar. Sem isso, ele encerra a execução intencionalmente.
+
+### Solução
+
+1. Acesse o diretório de dados do Hermes na VM:
+   ```bash
+   ls /opt/infra/NOME_DO_NEGOCIO/hermes/
+   ```
+
+2. Crie ou edite o arquivo de configuração do gateway:
+   ```bash
+   nano /opt/infra/NOME_DO_NEGOCIO/hermes/gateway.toml
+   ```
+
+3. Consulte a documentação oficial do Hermes para configurar sua plataforma de mensagens preferida. No mínimo, configure `GATEWAY_ALLOW_ALL_USERS=true` para testes:
+   ```bash
+   # Edite o YAML e adicione a variável de ambiente:
+   nano /opt/infra/NOME_DO_NEGOCIO/20.hermes-agent.yaml
+   # Adicione em environment:
+   #   GATEWAY_ALLOW_ALL_USERS: "true"
+   docker stack deploy --detach=true -c 20.hermes-agent.yaml hermes
+   ```
+
+> **Nota**: O Hermes Dashboard (`hermes_dashboard`) requer que o Gateway esteja rodando e saudável. Ele depende do `GATEWAY_HEALTH_URL` configurado no YAML.
+
+---
+
+## Cloudflare — Proxied vs DNS Only
+
+### Quando usar cada modo
+
+| Modo | Quando usar |
+|------|-------------|
+| **DNS Only** (nuvem cinza) | Sempre na instalação inicial e ao trocar de VM — necessário para o Traefik gerar certificados SSL via Let's Encrypt |
+| **Proxied** (nuvem laranja) | Após os certificados SSL estarem válidos e os serviços funcionando, para ganhar proteção DDoS e CDN da Cloudflare |
+
+### Ao trocar de VM, siga esta ordem:
+1. Aponte o registro A para o novo IP da VM no Cloudflare em modo **DNS Only**
+2. Instale a infra e aguarde o Traefik gerar os certificados (verifique nos logs)
+3. Confirme que todos os serviços respondem via HTTPS
+4. **Só então** ative o modo Proxied, se desejar
+
+> ⚠️ Ativar o modo Proxied antes dos certificados estarem prontos pode causar loops de certificado ou erros 526 (Invalid SSL Certificate).
+
+---
 <img width=200px height=200px src="img/5.PNG" alt="Bot logo"></a>
 
-**Versão**: 2.1.0 | **Atualizado**: Janeiro 2026 | **Novo**: Chatwoot integrado
+**Versão**: 2.1.0 | **Atualizado**: Julho 2026 | **Novo**: Troubleshooting expandido (Open Design, Postiz, Hermes, Cloudflare)

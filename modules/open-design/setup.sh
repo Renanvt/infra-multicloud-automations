@@ -48,14 +48,11 @@ services:
 
   # ─── Open Design ──────────────────────────────────────────────────────────
   open-design:
-    image: docker.io/vanjayak/open-design:latest
+    image: ghcr.io/nexu-io/od:latest
 
     environment:
-      OD_DISABLE_API_AUTH: "1"
-      OD_BIND_HOST: "0.0.0.0"
-      OD_PORT: "7456"
+      OPEN_DESIGN_DISABLE_API_AUTH: "1"
       OPEN_DESIGN_ALLOWED_ORIGINS: "https://${OPEN_DESIGN_DOMAIN}"
-      OD_ALLOWED_ORIGINS: "https://${OPEN_DESIGN_DOMAIN}"
 
     volumes:
       - open_design_data:/app/.od
