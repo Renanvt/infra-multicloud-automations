@@ -34,22 +34,19 @@ setup_postiz_vars() {
     confirm_input "${CYAN}🔑 Senha para o Temporal UI: ${RESET}" \
         "Senha Temporal UI:" POSTIZ_TEMPORAL_PASSWORD
 
-    # Gerar hash htpasswd — requer apache2-utils/httpd-tools
     if command -v htpasswd >/dev/null 2>&1; then
-        POSTIZ_TEMPORAL_HASH=$(htpasswd -nb "$POSTIZ_TEMPORAL_USER" "$POSTIZ_TEMPORAL_PASSWORD" \
-            | sed 's/\$/\$\$/g')
+        POSTIZ_TEMPORAL_HASH=$(htpasswd -nb "$POSTIZ_TEMPORAL_USER" "$POSTIZ_TEMPORAL_PASSWORD")
         print_success "Hash Basic Auth gerado"
     else
         print_info "htpasswd não encontrado — instalando apache2-utils..."
         apt-get install -y apache2-utils >/dev/null 2>&1 || true
         if command -v htpasswd >/dev/null 2>&1; then
-            POSTIZ_TEMPORAL_HASH=$(htpasswd -nb "$POSTIZ_TEMPORAL_USER" "$POSTIZ_TEMPORAL_PASSWORD" \
-                | sed 's/\$/\$\$/g')
+            POSTIZ_TEMPORAL_HASH=$(htpasswd -nb "$POSTIZ_TEMPORAL_USER" "$POSTIZ_TEMPORAL_PASSWORD")
             print_success "Hash Basic Auth gerado"
         else
             print_warning "Não foi possível gerar o hash. Edite 22.postiz.yaml depois:"
-            echo -e "  ${DIM}htpasswd -nb ${POSTIZ_TEMPORAL_USER} SUA_SENHA | sed 's/\\\$/\\\$\\\$/g'${RESET}"
-            POSTIZ_TEMPORAL_HASH="admin:\$\$HASH_PENDENTE"
+            echo -e "  ${DIM}htpasswd -nb ${POSTIZ_TEMPORAL_USER} SUA_SENHA${RESET}"
+            POSTIZ_TEMPORAL_HASH="admin:\$HASH_PENDENTE"
         fi
     fi
 

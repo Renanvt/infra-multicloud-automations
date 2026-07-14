@@ -32,12 +32,11 @@ setup_prometheus_vars() {
     fi
 
     if command -v htpasswd >/dev/null 2>&1; then
-        PROMETHEUS_HASH=$(htpasswd -nb "$PROMETHEUS_USER" "$PROMETHEUS_PASSWORD" \
-            | sed 's/\$/\$\$/g')
+        PROMETHEUS_HASH=$(htpasswd -nb "$PROMETHEUS_USER" "$PROMETHEUS_PASSWORD")
         print_success "Hash Basic Auth Prometheus gerado"
     else
         print_warning "Não foi possível gerar o hash — edite 23.prometheus.yaml depois"
-        PROMETHEUS_HASH="${PROMETHEUS_USER}:\$\$HASH_PENDENTE"
+        PROMETHEUS_HASH="${PROMETHEUS_USER}:\$HASH_PENDENTE"
     fi
 
     # ── Grafana (automático com Prometheus) ─────────────────────────────────

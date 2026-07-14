@@ -176,19 +176,10 @@ HERMES_DOMAIN="${HERMES_DOMAIN:-}"
 HERMES_DASHBOARD_DOMAIN="${HERMES_DASHBOARD_DOMAIN:-}"
 EOF
 
-    # Gravar hashes com printf para preservar $ literais
-    # Os hashes são gravados com $ simples no arquivo (sem expansão)
-    # e reconvertidos para $$ pelos módulos geradores de YAML
-    local _ph="${POSTIZ_TEMPORAL_HASH:-}"
-    local _prh="${PROMETHEUS_HASH:-}"
-    local _odh="${OPEN_DESIGN_HASH:-}"
-    # Converter $$ de volta para $ antes de gravar (evita dupla conversão no source)
-    _ph="${_ph//\$\$/\$}"
-    _prh="${_prh//\$\$/\$}"
-    _odh="${_odh//\$\$/\$}"
-    _write_hash "POSTIZ_TEMPORAL_HASH" "$_ph"
-    _write_hash "PROMETHEUS_HASH"      "$_prh"
-    _write_hash "OPEN_DESIGN_HASH"     "$_odh"
+    # Gravar hashes com printf — $ simples, sem risco de expansão pelo source
+    _write_hash "POSTIZ_TEMPORAL_HASH" "${POSTIZ_TEMPORAL_HASH:-}"
+    _write_hash "PROMETHEUS_HASH"      "${PROMETHEUS_HASH:-}"
+    _write_hash "OPEN_DESIGN_HASH"     "${OPEN_DESIGN_HASH:-}"
 
     chmod 600 "$CRED_FILE"
     log_message "INFO" "Credenciais salvas em $CRED_FILE"

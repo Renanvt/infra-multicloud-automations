@@ -26,13 +26,12 @@ setup_open_design_vars() {
     fi
 
     if command -v htpasswd >/dev/null 2>&1; then
-        OPEN_DESIGN_HASH=$(htpasswd -nb "$OPEN_DESIGN_USER" "$OPEN_DESIGN_PASSWORD" \
-            | sed 's/\$/\$\$/g')
+        OPEN_DESIGN_HASH=$(htpasswd -nb "$OPEN_DESIGN_USER" "$OPEN_DESIGN_PASSWORD")
         print_success "Hash Basic Auth gerado"
     else
         print_warning "Não foi possível gerar o hash — edite 26.open-design.yaml depois:"
-        echo -e "  ${DIM}htpasswd -nb ${OPEN_DESIGN_USER} SUA_SENHA | sed 's/\\\$/\\\$\\\$/g'${RESET}"
-        OPEN_DESIGN_HASH="${OPEN_DESIGN_USER}:\$\$HASH_PENDENTE"
+        echo -e "  ${DIM}htpasswd -nb ${OPEN_DESIGN_USER} SUA_SENHA${RESET}"
+        OPEN_DESIGN_HASH="${OPEN_DESIGN_USER}:\$HASH_PENDENTE"
     fi
 
     export OPEN_DESIGN_DOMAIN OPEN_DESIGN_USER OPEN_DESIGN_PASSWORD OPEN_DESIGN_HASH
