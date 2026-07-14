@@ -367,7 +367,7 @@ print_banner() {
     echo -e "${CYAN} | |\  | | (_) | | |\  |   +   | |_| |  | |  |  _|     | |     +  |  _  | |___|  _ <| |  | | |___ ___) |${RESET}"
     echo -e "${CYAN} |_| \_|  \___/  |_| \_|       |____/  |___| |_|       |_|        |_| |_|_____|_| \_\_|  |_|_____|____/ ${RESET}"
     echo -e "${CYAN}                                                                                                          ${RESET}"
-    echo -e "${CYAN}                    N8N + EVOLUTION + DIFY + HERMES + DOCKER SWARM - v2.0                                ${RESET}"
+    echo -e "${CYAN}                    N8N + EVOLUTION + DIFY + HERMES + DOCKER SWARM - v3.0                                ${RESET}"
     echo ""
 }
 

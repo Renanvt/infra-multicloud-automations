@@ -211,6 +211,8 @@ deploy_services() {
     fi
 
     # 0. Build da imagem customizada do n8n (antes de qualquer deploy)
+    clear
+    print_banner
     build_n8n_custom_image
 
     # 1. Traefik e Portainer
