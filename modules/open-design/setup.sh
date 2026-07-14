@@ -40,6 +40,11 @@ setup_open_design_vars() {
 
 generate_open_design_yaml() {
     local DATA_DIR="/opt/infra/${BUSINESS_NAME}/open-design"
+    # Garantir que o hash tem $$ para o Traefik YAML
+    local _OD_HASH="${OPEN_DESIGN_HASH:-}"
+    if [[ "$_OD_HASH" != *'$$'* && "$_OD_HASH" == *'$'* ]]; then
+        _OD_HASH="${_OD_HASH//\$/\$\$}"
+    fi
 
     cat <<EOF > 26.open-design.yaml
 version: "3.7"
@@ -90,7 +95,7 @@ services:
         traefik.http.routers.open-design.service: "open-design"
         traefik.http.services.open-design.loadbalancer.server.port: "7456"
         traefik.http.routers.open-design.middlewares: "open-design-auth"
-        traefik.http.middlewares.open-design-auth.basicauth.users: "${OPEN_DESIGN_HASH}"
+        traefik.http.middlewares.open-design-auth.basicauth.users: "${_OD_HASH}"
 
 volumes:
   open_design_data:

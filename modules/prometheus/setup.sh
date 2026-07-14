@@ -63,6 +63,12 @@ setup_prometheus_vars() {
 
 generate_prometheus_yaml() {
     local DATA_DIR="/opt/infra/${BUSINESS_NAME}/prometheus"
+    # Garantir que o hash tem $$ para o Traefik YAML (pode ter $ simples se veio do credentials.env)
+    local _PROM_HASH="${PROMETHEUS_HASH:-}"
+    # Se não tem $$, converte $ para $$
+    if [[ "$_PROM_HASH" != *'$$'* && "$_PROM_HASH" == *'$'* ]]; then
+        _PROM_HASH="${_PROM_HASH//\$/\$\$}"
+    fi
 
     cat <<EOF > 23.prometheus.yaml
 version: "3.7"
@@ -113,7 +119,7 @@ services:
         traefik.http.routers.prometheus.tls.certresolver: "letsencryptresolver"
         traefik.http.routers.prometheus.service: "prometheus"
         traefik.http.routers.prometheus.middlewares: "prometheus-auth"
-        traefik.http.middlewares.prometheus-auth.basicauth.users: "${PROMETHEUS_HASH}"
+        traefik.http.middlewares.prometheus-auth.basicauth.users: "${_PROM_HASH}"
         traefik.http.services.prometheus.loadbalancer.server.port: "9090"
 
 volumes:

@@ -189,6 +189,11 @@ _ask_social_slack() {
 
 generate_postiz_yaml() {
     local DATA_DIR="/opt/infra/${BUSINESS_NAME}/postiz"
+    # Garantir que o hash tem $$ para o Traefik YAML
+    local _PT_HASH="${POSTIZ_TEMPORAL_HASH:-}"
+    if [[ "$_PT_HASH" != *'$$'* && "$_PT_HASH" == *'$'* ]]; then
+        _PT_HASH="${_PT_HASH//\$/\$\$}"
+    fi
 
     cat <<EOF > 22.postiz.yaml
 version: "3.7"
@@ -461,7 +466,7 @@ services:
         traefik.http.routers.postiz-temporal.tls.certresolver: "letsencryptresolver"
         traefik.http.routers.postiz-temporal.service: "postiz_temporal_ui"
         traefik.http.routers.postiz-temporal.middlewares: "postiz-temporal-auth"
-        traefik.http.middlewares.postiz-temporal-auth.basicauth.users: "${POSTIZ_TEMPORAL_HASH}"
+        traefik.http.middlewares.postiz-temporal-auth.basicauth.users: "${_PT_HASH}"
         traefik.http.services.postiz_temporal_ui.loadbalancer.server.port: "8080"
         traefik.http.services.postiz_temporal_ui.loadbalancer.passHostHeader: "true"
 

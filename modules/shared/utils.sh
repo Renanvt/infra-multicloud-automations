@@ -61,6 +61,13 @@ EOF
 save_credentials() {
     local CRED_FILE="${LOG_DIR}/credentials.env"
 
+    # Usar printf para gravar hashes que contêm $$ (evita expansão do heredoc)
+    _write_hash() {
+        local KEY="$1"
+        local VAL="$2"
+        printf '%s="%s"\n' "$KEY" "$VAL" >> "$CRED_FILE"
+    }
+
     cat <<EOF > "$CRED_FILE"
 # ===== CREDENCIAIS SALVAS — $(date '+%Y-%m-%d %H:%M:%S') =====
 # Gerado automaticamente pelo instalador. NÃO compartilhe este arquivo.
@@ -120,7 +127,6 @@ POSTIZ_TEMPORAL_DOMAIN="${POSTIZ_TEMPORAL_DOMAIN:-}"
 POSTIZ_JWT_SECRET="${POSTIZ_JWT_SECRET:-}"
 POSTIZ_TEMPORAL_USER="${POSTIZ_TEMPORAL_USER:-}"
 POSTIZ_TEMPORAL_PASSWORD="${POSTIZ_TEMPORAL_PASSWORD:-}"
-POSTIZ_TEMPORAL_HASH="${POSTIZ_TEMPORAL_HASH:-}"
 POSTIZ_OPENAI_API_KEY="${POSTIZ_OPENAI_API_KEY:-}"
 X_API_KEY="${X_API_KEY:-}"
 X_API_SECRET="${X_API_SECRET:-}"
@@ -153,7 +159,6 @@ THREADS_APP_SECRET="${THREADS_APP_SECRET:-}"
 PROMETHEUS_DOMAIN="${PROMETHEUS_DOMAIN:-}"
 PROMETHEUS_USER="${PROMETHEUS_USER:-}"
 PROMETHEUS_PASSWORD="${PROMETHEUS_PASSWORD:-}"
-PROMETHEUS_HASH="${PROMETHEUS_HASH:-}"
 GRAFANA_DOMAIN="${GRAFANA_DOMAIN:-}"
 GRAFANA_ADMIN_USER="${GRAFANA_ADMIN_USER:-}"
 GRAFANA_ADMIN_PASSWORD="${GRAFANA_ADMIN_PASSWORD:-}"
@@ -162,7 +167,6 @@ GRAFANA_ADMIN_PASSWORD="${GRAFANA_ADMIN_PASSWORD:-}"
 OPEN_DESIGN_DOMAIN="${OPEN_DESIGN_DOMAIN:-}"
 OPEN_DESIGN_USER="${OPEN_DESIGN_USER:-}"
 OPEN_DESIGN_PASSWORD="${OPEN_DESIGN_PASSWORD:-}"
-OPEN_DESIGN_HASH="${OPEN_DESIGN_HASH:-}"
 
 # Metabase
 METABASE_DOMAIN="${METABASE_DOMAIN:-}"
@@ -171,6 +175,20 @@ METABASE_DOMAIN="${METABASE_DOMAIN:-}"
 HERMES_DOMAIN="${HERMES_DOMAIN:-}"
 HERMES_DASHBOARD_DOMAIN="${HERMES_DASHBOARD_DOMAIN:-}"
 EOF
+
+    # Gravar hashes com printf para preservar $ literais
+    # Os hashes são gravados com $ simples no arquivo (sem expansão)
+    # e reconvertidos para $$ pelos módulos geradores de YAML
+    local _ph="${POSTIZ_TEMPORAL_HASH:-}"
+    local _prh="${PROMETHEUS_HASH:-}"
+    local _odh="${OPEN_DESIGN_HASH:-}"
+    # Converter $$ de volta para $ antes de gravar (evita dupla conversão no source)
+    _ph="${_ph//\$\$/\$}"
+    _prh="${_prh//\$\$/\$}"
+    _odh="${_odh//\$\$/\$}"
+    _write_hash "POSTIZ_TEMPORAL_HASH" "$_ph"
+    _write_hash "PROMETHEUS_HASH"      "$_prh"
+    _write_hash "OPEN_DESIGN_HASH"     "$_odh"
 
     chmod 600 "$CRED_FILE"
     log_message "INFO" "Credenciais salvas em $CRED_FILE"
