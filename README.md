@@ -57,6 +57,8 @@ Este projeto utiliza **Docker Swarm** para orquestrar contêineres de forma resi
 
 ### Diagrama de Infraestrutura
 
+![infra-aloexpress](/img/infrastructure-diagram.png)
+
 ```mermaid
 graph TD
     User((Internet User)) -->|HTTPS/443| CloudFW[Cloud Firewall]
