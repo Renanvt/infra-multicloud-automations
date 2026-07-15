@@ -24,8 +24,7 @@ setup_openclaw_vars() {
     # OpenAI — opcional
     echo -e ""
     echo -e "  ${DIM}A chave OpenAI pode ser configurada depois via painel (Settings → Providers).${RESET}"
-    read -p "$(echo -e "${CYAN}🤖 OpenAI API Key (sk-...) — Enter para pular: ${RESET}")" \
-        OPENCLAW_OPENAI_API_KEY < /dev/tty || true
+    echo -ne "${CYAN}🤖 OpenAI API Key (sk-...) — Enter para pular: ${RESET}"; read OPENCLAW_OPENAI_API_KEY < /dev/tty || true
     if [ -z "$OPENCLAW_OPENAI_API_KEY" ]; then
         print_warning "OpenAI API Key não informada — configure depois via openclaw config set"
     else
@@ -35,23 +34,17 @@ setup_openclaw_vars() {
     # Integrações opcionais
     print_step "INTEGRAÇÕES OPCIONAIS (Enter para pular)"
 
-    read -p "$(echo -e "${CYAN}📡 Telegram Bot Token: ${RESET}")" \
-        OPENCLAW_TELEGRAM_TOKEN < /dev/tty || true
+    echo -ne "${CYAN}📡 Telegram Bot Token: ${RESET}"; read OPENCLAW_TELEGRAM_TOKEN < /dev/tty || true
 
-    read -p "$(echo -e "${CYAN}🔥 Firecrawl API Key: ${RESET}")" \
-        OPENCLAW_FIRECRAWL_KEY < /dev/tty || true
+    echo -ne "${CYAN}🔥 Firecrawl API Key: ${RESET}"; read OPENCLAW_FIRECRAWL_KEY < /dev/tty || true
 
-    read -p "$(echo -e "${CYAN}📝 Notion API Key: ${RESET}")" \
-        OPENCLAW_NOTION_KEY < /dev/tty || true
+    echo -ne "${CYAN}📝 Notion API Key: ${RESET}"; read OPENCLAW_NOTION_KEY < /dev/tty || true
 
-    read -p "$(echo -e "${CYAN}🐙 GitHub Personal Access Token: ${RESET}")" \
-        OPENCLAW_GITHUB_TOKEN < /dev/tty || true
+    echo -ne "${CYAN}🐙 GitHub Personal Access Token: ${RESET}"; read OPENCLAW_GITHUB_TOKEN < /dev/tty || true
 
-    read -p "$(echo -e "${CYAN}🗃️  Supabase Access Token: ${RESET}")" \
-        OPENCLAW_SUPABASE_TOKEN < /dev/tty || true
+    echo -ne "${CYAN}🗃️  Supabase Access Token: ${RESET}"; read OPENCLAW_SUPABASE_TOKEN < /dev/tty || true
 
-    read -p "$(echo -e "${CYAN}⚙️  N8N Bearer Token: ${RESET}")" \
-        OPENCLAW_N8N_BEARER_TOKEN < /dev/tty || true
+    echo -ne "${CYAN}⚙️  N8N Bearer Token: ${RESET}"; read OPENCLAW_N8N_BEARER_TOKEN < /dev/tty || true
 
     export OPENCLAW_DOMAIN OPENCLAW_GATEWAY_TOKEN OPENCLAW_HOOKS_TOKEN
     export OPENCLAW_OPENAI_API_KEY OPENCLAW_TELEGRAM_TOKEN OPENCLAW_FIRECRAWL_KEY
@@ -245,8 +238,7 @@ _prompt_user_dashboard_access() {
             print_warning "Device pairing pendente detectado:"
             echo -e "${PENDING_DEVICES}"
             echo -e ""
-            read -p "$(echo -e "${CYAN}📱 Informe o Request ID para aprovar (Enter para pular): ${RESET}")" \
-                OPENCLAW_DEVICE_ID < /dev/tty || true
+            echo -ne "${CYAN}📱 Informe o Request ID para aprovar (Enter para pular): ${RESET}"; read OPENCLAW_DEVICE_ID < /dev/tty || true
 
             if [ -n "$OPENCLAW_DEVICE_ID" ]; then
                 docker exec -u node "$OC_CONTAINER" \
@@ -257,8 +249,7 @@ _prompt_user_dashboard_access() {
     fi
 
     echo -e ""
-    read -p "$(echo -e "${GREEN}✔ Pressione Enter quando estiver conectado ao dashboard e pronto para continuar: ${RESET}")" \
-        _DASHBOARD_CONFIRM < /dev/tty || true
+    echo -ne "${GREEN}✔ Pressione Enter quando estiver conectado ao dashboard e pronto para continuar: ${RESET}"; read _DASHBOARD_CONFIRM < /dev/tty || true
     echo -e ""
 }
 
@@ -335,8 +326,8 @@ configure_openclaw() {
     # 5. Telegram command owner (se token foi informado)
     if [ -n "$OPENCLAW_TELEGRAM_TOKEN" ]; then
         print_info "Telegram configurado — informe seu Telegram ID numérico para ser o command owner."
-        read -p "$(echo -e "${CYAN}📱 Telegram ID (ex: 123456789) — Enter para pular: ${RESET}")" \
-            OPENCLAW_TELEGRAM_OWNER_ID < /dev/tty || true
+        echo -ne "${CYAN}📱 Telegram ID (ex: 123456789) — Enter para pular: ${RESET}"
+        read OPENCLAW_TELEGRAM_OWNER_ID < /dev/tty || true
 
         if [ -n "$OPENCLAW_TELEGRAM_OWNER_ID" ]; then
             oc_exec config set commands.ownerAllowFrom \

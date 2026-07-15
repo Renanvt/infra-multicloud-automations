@@ -261,7 +261,8 @@ check_recovery() {
 
         local CRED_CHOICE=""
         while true; do
-            read -p "$(echo -e "${GREEN}Opção (1/2): ${RESET}")" CRED_CHOICE < /dev/tty || true
+            echo -ne "${GREEN}Opção (1/2): ${RESET}"
+            read CRED_CHOICE < /dev/tty || true
             case "$CRED_CHOICE" in
                 1)
                     print_info "Carregando credenciais anteriores..."
@@ -336,7 +337,7 @@ handle_sigint() {
     echo ""
     echo -e "${YELLOW}⚠️  Interrupção detectada (Ctrl+C).${RESET}"
     # Usa || true para evitar que o set -e mate o script se o read falhar
-    read -p "$(echo -e ${RED}"Você deseja realmente sair? (s/n): "${RESET})" CONFIRM_EXIT < /dev/tty || true
+    echo -ne "${RED}Você deseja realmente sair? (s/n): ${RESET}"; read CONFIRM_EXIT < /dev/tty || true
     if [[ "$CONFIRM_EXIT" =~ ^(s|S|sim|SIM)$ ]]; then
         print_error "Instalação cancelada pelo usuário."
         exit 1

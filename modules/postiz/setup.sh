@@ -69,11 +69,9 @@ setup_postiz_vars() {
 
     # ---- OpenAI IA -----------------------------------------------------------
     echo -e ""
-    read -p "$(echo -e "${CYAN}🤖 Deseja configurar a OpenAI API Key no Postiz? (s/n): ${RESET}")" \
-        _OAI_OPT < /dev/tty || true
+    echo -ne "${CYAN}🤖 Deseja configurar a OpenAI API Key no Postiz? (s/n): ${RESET}"; read _OAI_OPT < /dev/tty || true
     if [[ "$_OAI_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
-        read -p "$(echo -e "${CYAN}   OpenAI API Key (sk-...): ${RESET}")" \
-            POSTIZ_OPENAI_API_KEY < /dev/tty || true
+        echo -ne "${CYAN}   OpenAI API Key (sk-...): ${RESET}"; read POSTIZ_OPENAI_API_KEY < /dev/tty || true
         print_success "OpenAI API Key configurada"
     else
         POSTIZ_OPENAI_API_KEY=""
@@ -125,12 +123,11 @@ _ask_social() {
     local VAR_ID="$2"
     local VAR_SECRET="$3"
 
-    read -p "$(echo -e "${CYAN}📱 Deseja configurar ${BOLD}${LABEL}${RESET}${CYAN}? (s/n): ${RESET}")" \
-        _OPT < /dev/tty || true
+    echo -ne "${CYAN}📱 Deseja configurar ${BOLD}${LABEL}${RESET}${CYAN}? (s/n): ${RESET}"; read _OPT < /dev/tty || true
 
     if [[ "$_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
-        read -p "$(echo -e "${CYAN}   ${LABEL} App ID / Client ID: ${RESET}")" _VAL_ID < /dev/tty || true
-        read -p "$(echo -e "${CYAN}   ${LABEL} App Secret / Client Secret: ${RESET}")" _VAL_SECRET < /dev/tty || true
+        echo -ne "${CYAN}   ${LABEL} App ID / Client ID: ${RESET}"; read _VAL_ID < /dev/tty || true
+        echo -ne "${CYAN}   ${LABEL} App Secret / Client Secret: ${RESET}"; read _VAL_SECRET < /dev/tty || true
         eval "${VAR_ID}=\"${_VAL_ID}\""
         eval "${VAR_SECRET}=\"${_VAL_SECRET}\""
         print_success "${LABEL} configurado"
@@ -146,13 +143,12 @@ _ask_social() {
 # Helper: Discord — Client ID + Client Secret + Bot Token
 # ---------------------------------------------------------------------------
 _ask_social_discord() {
-    read -p "$(echo -e "${CYAN}📱 Deseja configurar ${BOLD}Discord${RESET}${CYAN}? (s/n): ${RESET}")" \
-        _OPT < /dev/tty || true
+    echo -ne "${CYAN}📱 Deseja configurar ${BOLD}Discord${RESET}${CYAN}? (s/n): ${RESET}"; read _OPT < /dev/tty || true
 
     if [[ "$_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
-        read -p "$(echo -e "${CYAN}   Discord Client ID: ${RESET}")"       DISCORD_CLIENT_ID   < /dev/tty || true
-        read -p "$(echo -e "${CYAN}   Discord Client Secret: ${RESET}")"   DISCORD_CLIENT_SECRET < /dev/tty || true
-        read -p "$(echo -e "${CYAN}   Discord Bot Token: ${RESET}")"       DISCORD_BOT_TOKEN_ID  < /dev/tty || true
+        echo -ne "${CYAN}   Discord Client ID: ${RESET}"; read DISCORD_CLIENT_ID   < /dev/tty || true
+        echo -ne "${CYAN}   Discord Client Secret: ${RESET}"; read DISCORD_CLIENT_SECRET < /dev/tty || true
+        echo -ne "${CYAN}   Discord Bot Token: ${RESET}"; read DISCORD_BOT_TOKEN_ID  < /dev/tty || true
         print_success "Discord configurado"
     else
         DISCORD_CLIENT_ID=""
@@ -167,13 +163,12 @@ _ask_social_discord() {
 # Helper: Slack — Slack ID + Secret + Signing Secret
 # ---------------------------------------------------------------------------
 _ask_social_slack() {
-    read -p "$(echo -e "${CYAN}📱 Deseja configurar ${BOLD}Slack${RESET}${CYAN}? (s/n): ${RESET}")" \
-        _OPT < /dev/tty || true
+    echo -ne "${CYAN}📱 Deseja configurar ${BOLD}Slack${RESET}${CYAN}? (s/n): ${RESET}"; read _OPT < /dev/tty || true
 
     if [[ "$_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
-        read -p "$(echo -e "${CYAN}   Slack App ID (SLACK_ID): ${RESET}")"           SLACK_ID             < /dev/tty || true
-        read -p "$(echo -e "${CYAN}   Slack Secret (SLACK_SECRET): ${RESET}")"       SLACK_SECRET         < /dev/tty || true
-        read -p "$(echo -e "${CYAN}   Slack Signing Secret: ${RESET}")"              SLACK_SIGNING_SECRET < /dev/tty || true
+        echo -ne "${CYAN}   Slack App ID (SLACK_ID): ${RESET}"; read SLACK_ID             < /dev/tty || true
+        echo -ne "${CYAN}   Slack Secret (SLACK_SECRET): ${RESET}"; read SLACK_SECRET         < /dev/tty || true
+        echo -ne "${CYAN}   Slack Signing Secret: ${RESET}"; read SLACK_SIGNING_SECRET < /dev/tty || true
         print_success "Slack configurado"
     else
         SLACK_ID=""

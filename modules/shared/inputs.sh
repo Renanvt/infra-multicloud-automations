@@ -7,7 +7,8 @@ confirm_input() {
     local input_val=""
     
     while true; do
-        read -p "$(echo -e "$prompt_text")" input_val < /dev/tty || continue
+        echo -ne "$prompt_text"
+        read input_val < /dev/tty || continue
         
         input_val=$(echo "$input_val" | xargs)
         input_val="${input_val//\`/}"
@@ -29,11 +30,21 @@ confirm_input() {
 
         # Confirmação
         echo -e "${YELLOW}$confirm_text ${BOLD}$input_val${RESET}"
-        read -p "Está correto? (Enter para Sim, 'n' para alterar): " CONFIRM < /dev/tty || continue
+        echo -ne "Está correto? (Enter para Sim, 'n' para alterar): "
+        read CONFIRM < /dev/tty || continue
         if [[ -z "$CONFIRM" || "$CONFIRM" =~ ^(s|S|sim|SIM)$ ]]; then
             eval "$var_name=\"$input_val\""
             break
         fi
         echo -e "${DIM}Reinserindo valor...${RESET}"
     done
+}
+
+# Helper para perguntas s/n — substitui read -p "$(echo -e ...)"
+# Uso: ask_yn "Mensagem" VAR
+ask_yn() {
+    local prompt="$1"
+    local var_name="$2"
+    echo -ne "$prompt"
+    read "$var_name" < /dev/tty || eval "$var_name=''"
 }

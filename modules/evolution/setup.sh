@@ -8,7 +8,8 @@ setup_evolution_vars() {
 
     # Evolution S3
     echo -e ""
-    read -p "$(echo -e ${CYAN}"Deseja habilitar S3 para Evolution API? (s/n): "${RESET})" ENABLE_S3 < /dev/tty || true
+    echo -ne "${CYAN}Deseja habilitar S3 para Evolution API? (s/n): ${RESET}"
+    read ENABLE_S3 < /dev/tty || true
     if [[ "$ENABLE_S3" =~ ^(s|S|sim|SIM)$ ]]; then
         EVO_ENABLE_S3=true
         confirm_input "${CYAN}🪣 Nome do Bucket S3 (Evolution): ${RESET}" "Bucket:" EVO_S3_BUCKET

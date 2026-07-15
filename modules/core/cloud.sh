@@ -58,17 +58,18 @@ setup_aws() {
     check_root
 
     echo -e "${YELLOW}⚠️  Você escolheu o setup AWS (Swarm Architecture)${RESET}"
-    read -p "$(echo -e ${BOLD}${GREEN}"Confirmar instalação AWS? (s/n): "${RESET})" CONFIRM_AWS < /dev/tty
+    echo -ne "${BOLD}${GREEN}Confirmar instalação AWS? (s/n): ${RESET}"
+    read CONFIRM_AWS < /dev/tty
     if [[ ! "$CONFIRM_AWS" =~ ^(s|S|sim|SIM)$ ]]; then return 1; fi
 
     IS_AWS=true
     CLOUD_PROVIDER="aws"
 
-    read -p "$(echo -e ${CYAN}"🗝️  Access Key: "${RESET})" AWS_ACCESS_KEY_ID < /dev/tty
-    read -p "$(echo -e ${CYAN}"🔒 AWS_SECRET_ACCESS_KEY: "${RESET})" AWS_SECRET_ACCESS_KEY < /dev/tty
+    echo -ne "${CYAN}🗝️  Access Key: ${RESET}"; read AWS_ACCESS_KEY_ID < /dev/tty
+    echo -ne "${CYAN}🔒 AWS_SECRET_ACCESS_KEY: ${RESET}"; read AWS_SECRET_ACCESS_KEY < /dev/tty
     echo ""
-    read -p "$(echo -e ${CYAN}"🌍 Região AWS (ex: us-east-1): "${RESET})" S3_REGION < /dev/tty
-    read -p "$(echo -e ${CYAN}"🪣 Nome do Bucket S3: "${RESET})" S3_BUCKET_NAME < /dev/tty
+    echo -ne "${CYAN}🌍 Região AWS (ex: us-east-1): ${RESET}"; read S3_REGION < /dev/tty
+    echo -ne "${CYAN}🪣 Nome do Bucket S3: ${RESET}"; read S3_BUCKET_NAME < /dev/tty
     echo ""
 
     print_step "PREPARANDO AMBIENTE AWS"
@@ -104,7 +105,8 @@ setup_gcp() {
     check_root
 
     echo -e "${YELLOW}⚠️  Você escolheu o setup Google Cloud (Swarm Architecture)${RESET}"
-    read -p "$(echo -e ${BOLD}${GREEN}"Confirmar instalação GCP? (s/n): "${RESET})" CONFIRM_GCP < /dev/tty
+    echo -ne "${BOLD}${GREEN}Confirmar instalação GCP? (s/n): ${RESET}"
+    read CONFIRM_GCP < /dev/tty
     if [[ ! "$CONFIRM_GCP" =~ ^(s|S|sim|SIM)$ ]]; then return 1; fi
 
     CLOUD_PROVIDER="gcp"
@@ -130,7 +132,8 @@ setup_digitalocean() {
     check_root
 
     echo -e "${YELLOW}⚠️  Você escolheu o setup DigitalOcean (Droplet / Swarm Architecture)${RESET}"
-    read -p "$(echo -e ${BOLD}${GREEN}"Confirmar instalação DigitalOcean? (s/n): "${RESET})" CONFIRM_DO < /dev/tty
+    echo -ne "${BOLD}${GREEN}Confirmar instalação DigitalOcean? (s/n): ${RESET}"
+    read CONFIRM_DO < /dev/tty
     if [[ ! "$CONFIRM_DO" =~ ^(s|S|sim|SIM)$ ]]; then return 1; fi
 
     CLOUD_PROVIDER="digitalocean"

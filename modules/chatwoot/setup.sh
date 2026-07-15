@@ -27,7 +27,8 @@ setup_chatwoot_vars() {
     echo -e "  ${DIM}Você pode pular agora e configurar depois editando 19.chatwoot.yaml${RESET}"
     echo -e ""
 
-    read -p "$(echo -e "${CYAN}📧 Deseja configurar o Resend agora? (s/n): ${RESET}")" _RESEND_OPT < /dev/tty || true
+    echo -ne "${CYAN}📧 Deseja configurar o Resend agora? (s/n): ${RESET}"
+    read _RESEND_OPT < /dev/tty || true
 
     if [[ "$_RESEND_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
         echo -e ""

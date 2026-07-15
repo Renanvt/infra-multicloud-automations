@@ -174,7 +174,8 @@ verify_dns() {
     echo -e "   ${ARROW} LinkedIn:                  ${DIM}developer.linkedin.com${RESET}"
     echo -e "   ${ARROW} TikTok:                    ${DIM}developers.tiktok.com${RESET}"
     echo -e "   ${DIM}Você pode pular qualquer rede agora e configurar depois no painel do Postiz.${RESET}"
-    read -p "$(echo -e ${BOLD}${GREEN}"Os DNS estão configurados corretamente? (s/n): "${RESET})" DNS_CONFIRM < /dev/tty
+    echo -ne "${BOLD}${GREEN}Os DNS estão configurados corretamente? (s/n): ${RESET}"
+    read DNS_CONFIRM < /dev/tty
     if [[ ! "$DNS_CONFIRM" =~ ^(s|S|sim|SIM)$ ]]; then 
         print_error "Configure o DNS e execute novamente."
         exit 0

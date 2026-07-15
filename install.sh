@@ -96,7 +96,8 @@ while true; do
     echo -e "${CYAN}Informe o nome do seu negócio (ex: minhaempresa).${RESET}"
     echo -e "${DIM}Isso será usado para personalizar pastas, logs e backups.${RESET}"
     echo -e "${YELLOW}⚠️  Atenção: Use apenas letras minúsculas e números, tudo junto (sem espaços).${RESET}"
-    read -p "$(echo -e ${GREEN}"Nome do Negócio: "${RESET})" INPUT_BUSINESS_NAME < /dev/tty || continue
+    echo -ne "${GREEN}Nome do Negócio: ${RESET}"
+    read INPUT_BUSINESS_NAME < /dev/tty || continue
 
     if [[ -z "$INPUT_BUSINESS_NAME" ]]; then
         print_error "Nome do negócio não pode ser vazio!"
@@ -189,7 +190,8 @@ else
     setup_chatwoot_vars
 
     # Postiz — pergunta separada, independente do menu Dify/OpenClaw
-    read -p "$(echo -e "${CYAN}📱 Deseja instalar o Postiz (gerenciador de redes sociais)? (s/n): ${RESET}")" _POSTIZ_OPT < /dev/tty || true
+    echo -ne "${CYAN}📱 Deseja instalar o Postiz (gerenciador de redes sociais)? (s/n): ${RESET}"
+    read _POSTIZ_OPT < /dev/tty || true
     if [[ "$_POSTIZ_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
         ENABLE_POSTIZ=true
         export ENABLE_POSTIZ
@@ -197,7 +199,8 @@ else
     fi
 
     # Prometheus — monitoramento (instala Grafana e Node Exporter automaticamente)
-    read -p "$(echo -e "${CYAN}📊 Deseja instalar o Prometheus + Grafana + Node Exporter (monitoramento)? (s/n): ${RESET}")" _PROM_OPT < /dev/tty || true
+    echo -ne "${CYAN}📊 Deseja instalar o Prometheus + Grafana + Node Exporter (monitoramento)? (s/n): ${RESET}"
+    read _PROM_OPT < /dev/tty || true
     if [[ "$_PROM_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
         ENABLE_PROMETHEUS=true
         ENABLE_GRAFANA=true
@@ -206,7 +209,8 @@ else
     fi
 
     # Open Design — editor de design self-hosted
-    read -p "$(echo -e "${CYAN}🎨 Deseja instalar o Open Design (editor de design)? (s/n): ${RESET}")" _OD_OPT < /dev/tty || true
+    echo -ne "${CYAN}🎨 Deseja instalar o Open Design (editor de design)? (s/n): ${RESET}"
+    read _OD_OPT < /dev/tty || true
     if [[ "$_OD_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
         ENABLE_OPEN_DESIGN=true
         export ENABLE_OPEN_DESIGN
@@ -214,19 +218,20 @@ else
     fi
 
     # Metabase — BI e análise de dados
-    read -p "$(echo -e "${CYAN}📊 Deseja instalar o Metabase (BI / análise de dados)? (s/n): ${RESET}")" _MB_OPT < /dev/tty || true
+    echo -ne "${CYAN}📊 Deseja instalar o Metabase (BI / análise de dados)? (s/n): ${RESET}"
+    read _MB_OPT < /dev/tty || true
     if [[ "$_MB_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
         ENABLE_METABASE=true
         export ENABLE_METABASE
         setup_metabase_vars
     fi
 
-    # Hermes Agent — comportamento depende da RAM disponível
+    # Hermes Agent
     : "${TOTAL_RAM_MB:=0}"
-    read -p "$(echo -e "${CYAN}🤖 Deseja instalar o Hermes Agent (gateway IA)? (s/n): ${RESET}")" _HERMES_OPT < /dev/tty || true
+    echo -ne "${CYAN}🤖 Deseja instalar o Hermes Agent (gateway IA)? (s/n): ${RESET}"
+    read _HERMES_OPT < /dev/tty || true
     if [[ "$_HERMES_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
         ENABLE_HERMES=true
-        # Em VMs com <= 8GB RAM instala sem Dashboard para economizar memória
         if [ "$TOTAL_RAM_MB" -le 8192 ]; then
             HERMES_DASHBOARD_ENABLED=false
             print_info "VM com ${TOTAL_RAM_MB}MB RAM — Hermes será instalado no modo Gateway-only (sem Dashboard)."

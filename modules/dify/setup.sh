@@ -17,7 +17,8 @@ setup_dify_vars() {
     echo -e ""
 
     while true; do
-        read -p "$(echo -e "${GREEN}Opção (1/2/3): ${RESET}")" AI_CHOICE < /dev/tty || continue
+        echo -ne "${GREEN}Opção (1/2/3): ${RESET}"
+        read AI_CHOICE < /dev/tty || continue
         case "$AI_CHOICE" in
             1) ENABLE_DIFY=true;  ENABLE_OPENCLAW=false; break ;;
             2) ENABLE_DIFY=false; ENABLE_OPENCLAW=true;  break ;;
@@ -42,7 +43,8 @@ setup_dify_vars() {
 
         if [ "$TOTAL_RAM_MB" -lt 3800 ]; then
             print_warning "Sua VM tem apenas ${TOTAL_RAM_MB}MB RAM. Dify pode ficar instável."
-            read -p "Deseja continuar mesmo assim? (s/n): " FORCE_DIFY < /dev/tty || true
+            echo -ne "Deseja continuar mesmo assim? (s/n): "
+            read FORCE_DIFY < /dev/tty || true
             if [[ ! "$FORCE_DIFY" =~ ^(s|S|sim|SIM)$ ]]; then
                 print_warning "Dify cancelado. Retornando ao menu de IA..."
                 ENABLE_DIFY=false
@@ -66,7 +68,8 @@ setup_dify_vars() {
         # Reutilizar S3 do Evolution?
         if [ "$EVO_ENABLE_S3" = true ]; then
              echo -e "${CYAN}Detectamos configuração S3 no Evolution (Bucket: $EVO_S3_BUCKET).${RESET}"
-             read -p "Deseja reutilizar estas credenciais para o Dify? (s/n): " REUSE_S3 < /dev/tty || true
+             echo -ne "Deseja reutilizar estas credenciais para o Dify? (s/n): "
+             read REUSE_S3 < /dev/tty || true
              if [[ "$REUSE_S3" =~ ^(s|S|sim|SIM)$ ]]; then
                  DIFY_S3_BUCKET="$EVO_S3_BUCKET"
                  DIFY_S3_REGION="$EVO_S3_REGION"

@@ -181,7 +181,8 @@ deploy_services() {
 
         local DEPLOY_CHOICE=""
         while true; do
-            read -p "$(echo -e "${GREEN}Opção (1/2/3): ${RESET}")" DEPLOY_CHOICE < /dev/tty || true
+            echo -ne "${GREEN}Opção (1/2/3): ${RESET}"
+            read DEPLOY_CHOICE < /dev/tty || true
             case "$DEPLOY_CHOICE" in
                 1)
                     print_info "Modo redeploy — stacks existentes serão atualizadas"
