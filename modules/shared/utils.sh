@@ -29,14 +29,10 @@ BUSINESS_NAME=""
 # ===== FUNÇÕES DE LOG E RESILIÊNCIA =====
 setup_logging() {
     mkdir -p "$LOG_DIR"
-    local LOG_FILE="${LOG_DIR}/setup_$(date +%Y%m%d).log"
-    # Redireciona stderr para o log sem bloquear o stdout do terminal
-    # Evita usar exec > >(tee ...) que cria processo background e trava curl|bash
-    if [ -z "$LOGGING_ACTIVE" ]; then
-        export LOGGING_ACTIVE=true
-        # Apenas redireciona stderr para arquivo — stdout continua no terminal
-        exec 2>>"$LOG_FILE"
-    fi
+    # Apenas garante que o diretório existe
+    # Não redireciona stdout/stderr para evitar problemas com curl|bash
+    # O log é feito via log_message() para o arquivo detailed.log
+    export LOGGING_ACTIVE=true
 }
 
 log_message() {
