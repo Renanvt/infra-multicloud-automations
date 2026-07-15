@@ -201,13 +201,13 @@ scrape_configs:
 
   - job_name: "node"
     static_configs:
-      - targets: ["node-exporter:9100"]
+      - targets: ["node_exporter_node-exporter:9100"]
 
   - job_name: "node-exporter"
     static_configs:
-      - targets: ["node-exporter:9100"]
+      - targets: ["node_exporter_node-exporter:9100"]
 PROMCFG
-    print_success "prometheus.yml criado (scrape: prometheus + node + node-exporter)"
+    print_success "prometheus.yml criado"
 
     # ── Deploy Prometheus ────────────────────────────────────────────────────
     print_info "Deploying Prometheus..."
