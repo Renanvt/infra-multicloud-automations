@@ -5,6 +5,12 @@
 #  Modularized version of the original setup script
 # ==============================================================================
 
+# Quando rodando via curl|bash, redirecionar stdin para /dev/tty
+# para evitar que o pipe do script seja consumido por funções com 'read'
+if [ ! -t 0 ] && [ -e /dev/tty ]; then
+    exec </dev/tty
+fi
+
 # Directory where the script is running
 if [ -z "${BASH_SOURCE[0]}" ]; then
     # Running via pipe/curl - Use a temporary directory

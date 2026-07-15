@@ -199,10 +199,6 @@ scrape_configs:
     static_configs:
       - targets: ["localhost:9090"]
 
-  - job_name: "node"
-    static_configs:
-      - targets: ["node_exporter_node-exporter:9100"]
-
   - job_name: "node-exporter"
     static_configs:
       - targets: ["node_exporter_node-exporter:9100"]

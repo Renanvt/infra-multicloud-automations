@@ -195,14 +195,17 @@ deploy_hermes() {
     print_success "Stack 'hermes' enviada para o Swarm"
 
     # Criar alias 'hermes' para facilitar configuração posterior
-    # O alias aponta para o container do gateway via docker exec
-    local ALIAS_LINE="alias hermes='docker exec -it \$(docker ps -q -f name=hermes_hermes_gateway) hermes'"
+    # Usa o nome do serviço Swarm — funciona mesmo se o container reiniciou
+    local ALIAS_LINE="alias hermes='docker exec -it \$(docker ps -q -f name=hermes_hermes_gateway --filter status=running | head -1) hermes'"
+    local ALIAS_SETUP="alias hermes-setup='docker run --rm -it -v /opt/infra/${BUSINESS_NAME}/hermes:/opt/data nousresearch/hermes-agent:latest hermes setup'"
     if ! grep -q "alias hermes=" /root/.bashrc 2>/dev/null; then
         echo "$ALIAS_LINE" >> /root/.bashrc
-        print_success "Alias 'hermes' criado — use: hermes setup  ou  hermes configure"
+        echo "$ALIAS_SETUP" >> /root/.bashrc
+        print_success "Aliases criados — use: hermes-setup  (funciona mesmo com gateway parado)"
     fi
 
-    print_info "Hermes instalado. Configure com: hermes setup  (após abrir novo terminal)"
+    print_info "Hermes instalado."
+    print_info "Para configurar, abra novo terminal e execute: hermes-setup"
 } 
 
 _verify_hermes_running() {
