@@ -287,8 +287,8 @@ save_credentials
 # 10. Service Deployment
 deploy_services || true
 
-# 11. Final Summary — sempre executa, isolado em subshell para nao ser afetado por erros anteriores
-( print_summary ) || true
+# 11. Final Summary — sempre executa, mesmo se algo falhou antes
+print_summary || true
 
 # 12. Backup Setup (usa read — pode abortar em curl|bash, mas summary já foi exibido)
 setup_auto_backup || true
