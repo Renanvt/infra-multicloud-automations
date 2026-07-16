@@ -100,6 +100,7 @@ CHATWOOT_ADMIN_PASSWORD="${CHATWOOT_ADMIN_PASSWORD:-}"
 ENABLE_DIFY="${ENABLE_DIFY:-false}"
 ENABLE_OPENCLAW="${ENABLE_OPENCLAW:-false}"
 ENABLE_POSTIZ="${ENABLE_POSTIZ:-false}"
+ENABLE_POSTIZ2="${ENABLE_POSTIZ2:-false}"
 ENABLE_PROMETHEUS="${ENABLE_PROMETHEUS:-false}"
 ENABLE_GRAFANA="${ENABLE_GRAFANA:-false}"
 ENABLE_OPEN_DESIGN="${ENABLE_OPEN_DESIGN:-false}"
@@ -153,7 +154,9 @@ SLACK_SIGNING_SECRET="${SLACK_SIGNING_SECRET:-}"
 THREADS_APP_ID="${THREADS_APP_ID:-}"
 THREADS_APP_SECRET="${THREADS_APP_SECRET:-}"
 
-# Prometheus / Grafana
+# Postiz 2
+POSTIZ2_DOMAIN="${POSTIZ2_DOMAIN:-}"
+POSTIZ2_JWT_SECRET="${POSTIZ2_JWT_SECRET:-}"
 PROMETHEUS_DOMAIN="${PROMETHEUS_DOMAIN:-}"
 PROMETHEUS_USER="${PROMETHEUS_USER:-}"
 PROMETHEUS_PASSWORD="${PROMETHEUS_PASSWORD:-}"
@@ -272,6 +275,7 @@ check_recovery() {
                     # Reativar flags de módulos opcionais baseado nos domínios configurados
                     # (as flags podem ter sido salvas como false se save_credentials rodou cedo demais)
                     [ -n "$POSTIZ_DOMAIN" ]        && ENABLE_POSTIZ=true
+                    [ -n "$POSTIZ2_DOMAIN" ]       && ENABLE_POSTIZ2=true
                     [ -n "$PROMETHEUS_DOMAIN" ]    && ENABLE_PROMETHEUS=true && ENABLE_GRAFANA=true
                     [ -n "$GRAFANA_DOMAIN" ]       && ENABLE_GRAFANA=true
                     [ -n "$OPEN_DESIGN_DOMAIN" ]   && ENABLE_OPEN_DESIGN=true
@@ -283,10 +287,11 @@ check_recovery() {
                     [ -n "$HERMES_DASHBOARD_DOMAIN" ] && HERMES_DASHBOARD_ENABLED=true || HERMES_DASHBOARD_ENABLED=false
 
                     # Exportar tudo
-                    export ENABLE_DIFY ENABLE_OPENCLAW ENABLE_POSTIZ
+                    export ENABLE_DIFY ENABLE_OPENCLAW ENABLE_POSTIZ ENABLE_POSTIZ2
                     export ENABLE_PROMETHEUS ENABLE_GRAFANA ENABLE_OPEN_DESIGN
                     export ENABLE_METABASE ENABLE_HERMES HERMES_DASHBOARD_ENABLED
                     export OPEN_DESIGN_HASH PROMETHEUS_HASH
+                    export POSTIZ2_DOMAIN POSTIZ2_JWT_SECRET
                     export X_API_KEY X_API_SECRET
                     export LINKEDIN_CLIENT_ID LINKEDIN_CLIENT_SECRET
                     export REDDIT_CLIENT_ID REDDIT_CLIENT_SECRET

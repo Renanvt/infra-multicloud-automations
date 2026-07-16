@@ -383,6 +383,11 @@ deploy_services() {
         deploy_postiz
     fi
 
+    # Deploy Postiz 2 (segunda instância)
+    if [ "$ENABLE_POSTIZ2" = true ]; then
+        deploy_postiz2
+    fi
+
     # Deploy Prometheus + Grafana + Node Exporter (stack integrada)
     if [ "$ENABLE_PROMETHEUS" = true ]; then
         deploy_prometheus
@@ -645,6 +650,7 @@ print_summary() {
     [ "$ENABLE_OPENCLAW"    = true ] && echo -e "  ${GREEN}✔${RESET} ${WHITE}OpenClaw${RESET}        https://${OPENCLAW_DOMAIN}"
     [ "$ENABLE_POSTIZ"      = true ] && echo -e "  ${GREEN}✔${RESET} ${WHITE}Postiz${RESET}          https://${POSTIZ_DOMAIN}"
     [ "$ENABLE_POSTIZ"      = true ] && echo -e "  ${GREEN}✔${RESET} ${WHITE}Postiz Temporal${RESET} https://${POSTIZ_TEMPORAL_DOMAIN}"
+    [ "$ENABLE_POSTIZ2"     = true ] && echo -e "  ${GREEN}✔${RESET} ${WHITE}Postiz 2${RESET}         https://${POSTIZ2_DOMAIN}"
     [ "$ENABLE_PROMETHEUS"  = true ] && echo -e "  ${GREEN}✔${RESET} ${WHITE}Prometheus${RESET}      https://${PROMETHEUS_DOMAIN}"
     [ "$ENABLE_GRAFANA"     = true ] && echo -e "  ${GREEN}✔${RESET} ${WHITE}Grafana${RESET}         https://${GRAFANA_DOMAIN}"
     [ "$ENABLE_OPEN_DESIGN" = true ] && echo -e "  ${GREEN}✔${RESET} ${WHITE}Open Design${RESET}     https://${OPEN_DESIGN_DOMAIN}"
@@ -692,6 +698,7 @@ print_summary() {
     echo -e "  ${ARROW} 2. Acesse o N8N: https://${N8N_EDITOR_DOMAIN}"
     echo -e "  ${ARROW} 3. Acesse o Chatwoot: https://${CHATWOOT_DOMAIN}/app/login"
     [ "$ENABLE_POSTIZ"   = true ] && echo -e "  ${ARROW} 4. Configure redes sociais no Postiz: https://${POSTIZ_DOMAIN}"
+    [ "$ENABLE_POSTIZ2"  = true ] && echo -e "  ${ARROW} 4b. Configure redes sociais no Postiz 2: https://${POSTIZ2_DOMAIN}"
     [ "$ENABLE_GRAFANA"  = true ] && echo -e "  ${ARROW} 5. Adicione Prometheus como datasource no Grafana: http://prometheus_prometheus:9090"
     echo -e ""
 

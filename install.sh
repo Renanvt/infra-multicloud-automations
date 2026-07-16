@@ -69,6 +69,7 @@ MODULES=(
     "modules/chatwoot/setup.sh"
     "modules/openclaw/setup.sh"
     "modules/postiz/setup.sh"
+    "modules/postiz2/setup.sh"
     "modules/prometheus/setup.sh"
     "modules/grafana/setup.sh"
     "modules/open-design/setup.sh"
@@ -132,6 +133,7 @@ CHECKPOINT_FILE="${LOG_DIR}/checkpoint"
 ENABLE_DIFY=false
 ENABLE_OPENCLAW=false
 ENABLE_POSTIZ=false
+ENABLE_POSTIZ2=false
 ENABLE_PROMETHEUS=false
 ENABLE_GRAFANA=false
 ENABLE_OPEN_DESIGN=false
@@ -198,6 +200,17 @@ else
         setup_postiz_vars
     fi
 
+    # Postiz 2 — segunda instância (só pergunta se Postiz 1 foi instalado)
+    if [ "$ENABLE_POSTIZ" = true ]; then
+        echo -ne "${CYAN}📱 Deseja instalar o Postiz 2 (segunda instância para outras contas)? (s/n): ${RESET}"
+        read _POSTIZ2_OPT < /dev/tty || true
+        if [[ "$_POSTIZ2_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
+            ENABLE_POSTIZ2=true
+            export ENABLE_POSTIZ2
+            setup_postiz2_vars
+        fi
+    fi
+
     # Prometheus — monitoramento (instala Grafana e Node Exporter automaticamente)
     echo -ne "${CYAN}📊 Deseja instalar o Prometheus + Grafana + Node Exporter (monitoramento)? (s/n): ${RESET}"
     read _PROM_OPT < /dev/tty || true
@@ -261,6 +274,10 @@ generate_chatwoot_yaml
 
 if [ "$ENABLE_POSTIZ" = true ]; then
     generate_postiz_yaml
+fi
+
+if [ "$ENABLE_POSTIZ2" = true ]; then
+    generate_postiz2_yaml
 fi
 
 if [ "$ENABLE_PROMETHEUS" = true ]; then
