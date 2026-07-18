@@ -700,6 +700,26 @@ docker stack deploy -c infra/18.evolution_v2.yaml evolution_v2
 
 ## Transferência de Arquivos (Upload/Download)
 
+### Baixar o credentials.env da VM
+
+```bash
+# DigitalOcean / qualquer VM com SSH direto
+scp root@SEU_IP:/var/log/NOME_DO_NEGOCIO/credentials.env ~/Downloads/credentials.env
+
+# AWS (com chave .pem)
+scp -i "sua-chave.pem" ubuntu@SEU_IP:/var/log/NOME_DO_NEGOCIO/credentials.env ~/Downloads/credentials.env
+
+# GCP (via gcloud)
+gcloud compute scp NOME_DA_VM:/var/log/NOME_DO_NEGOCIO/credentials.env ~/Downloads/credentials.env --zone=us-central1-a
+```
+
+**Via browser (SSH no navegador GCP/DigitalOcean):**
+```bash
+# Na VM, copie para /tmp
+cp /var/log/alobexpress/credentials.env /tmp/credentials.env
+```
+Depois clique na engrenagem ⚙️ → **Download file** → `/tmp/credentials.env`
+
 ### Baixar da VM para seu PC
 **Método via Navegador (SSH GCP):**
 1. Na VM: `sudo tar -czf /tmp/backup.tar.gz /caminho/da/pasta`
