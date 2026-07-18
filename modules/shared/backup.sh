@@ -4,7 +4,7 @@ setup_auto_backup() {
     print_step "CONFIGURANDO BACKUP AUTOMÁTICO"
     
     # Pergunta se deseja configurar
-    read -p "$(echo -e ${CYAN}"Deseja configurar backup automático? (s/n): "${RESET})" SETUP_BACKUP_OPT < /dev/tty || true
+    echo -ne "${CYAN}Deseja configurar backup automático? (s/n): ${RESET}"; read SETUP_BACKUP_OPT < /dev/tty || true
     if [[ ! "$SETUP_BACKUP_OPT" =~ ^(s|S|sim|SIM)$ ]]; then
         print_info "Backup automático ignorado."
         return
@@ -13,7 +13,7 @@ setup_auto_backup() {
     echo -e "${YELLOW}Escolha o destino do backup:${RESET}"
     echo -e "  1) VM Local (Pasta local)"
     echo -e "  2) S3 (AWS, DigitalOcean Spaces, MinIO, etc)"
-    read -p "$(echo -e ${CYAN}"Opção (1 ou 2): "${RESET})" BACKUP_TYPE < /dev/tty || true
+    echo -ne "${CYAN}Opção (1 ou 2): ${RESET}"; read BACKUP_TYPE < /dev/tty || true
 
     if [[ "$BACKUP_TYPE" == "1" ]]; then
         # === BACKUP LOCAL ===
@@ -86,7 +86,7 @@ setup_auto_backup() {
             confirm_input "${CYAN}🗝️ Access Key ID: ${RESET}" "Access Key:" B_ACCESS
             confirm_input "${CYAN}🔒 Secret Access Key: ${RESET}" "Secret Key:" B_SECRET
             # Endpoint opcional
-            read -p "$(echo -e ${CYAN}"🔗 Endpoint S3 Custom (Enter para AWS padrão): "${RESET})" B_ENDPOINT < /dev/tty || true
+        echo -ne "${CYAN}🔗 Endpoint S3 Custom (Enter para AWS padrão): ${RESET}"; read B_ENDPOINT < /dev/tty || true
         fi
 
         # Baixar o script backup_to_s3.sh
@@ -208,7 +208,7 @@ download_script() {
 run_backup_restore_menu() {
     print_step "BACKUP & RESTORE"
 
-    read -p "$(echo -e ${CYAN}"Deseja fazer um backup inicial? (s/n): "${RESET})" DO_INITIAL_BACKUP < /dev/tty || true
+    echo -ne "${CYAN}Deseja fazer um backup inicial? (s/n): ${RESET}"; read DO_INITIAL_BACKUP < /dev/tty || true
 
     if [[ "$DO_INITIAL_BACKUP" =~ ^(s|S|sim|SIM)$ ]]; then
         echo -e "${GREEN}Iniciando Backup Inicial...${RESET}"
@@ -332,7 +332,7 @@ run_backup_restore_menu() {
         return
     fi
 
-    read -p "$(echo -e ${CYAN}"Deseja restaurar dados de outra VM? (fluxos n8n, fluxos Dify, configurações evolution, certificados ssl, dados do portainer) (s/n): "${RESET})" RESTORE_OTHER_VM < /dev/tty || true
+    echo -ne "${CYAN}Deseja restaurar dados de outra VM? (fluxos n8n, fluxos Dify, configurações evolution, certificados ssl, dados do portainer) (s/n): ${RESET}"; read RESTORE_OTHER_VM < /dev/tty || true
     if [[ ! "$RESTORE_OTHER_VM" =~ ^(s|S|sim|SIM)$ ]]; then
         print_info "Backup inicial e restauração ignorados."
         return

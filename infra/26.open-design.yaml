@@ -12,6 +12,8 @@ services:
       OD_PORT: "7456"
       OPEN_DESIGN_ALLOWED_ORIGINS: "https://design.seudominio.com.br"
       OD_ALLOWED_ORIGINS: "https://design.seudominio.com.br"
+      OD_API_TOKEN: ""
+      OPENAI_API_KEY: ""
 
     volumes:
       - open_design_data:/app/.od
