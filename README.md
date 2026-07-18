@@ -300,6 +300,11 @@ Todas as senhas, chaves e hashes gerados durante a instalação ficam salvos em:
 sudo cat /var/log/NOME_DO_NEGOCIO/credentials.env
 ```
 
+> **Atalho:** se você já sabe o nome do negócio, rode direto:
+> ```bash
+> cat /var/log/alobexpress/credentials.env
+> ```
+
 ### Como alterar uma senha
 
 1. Edite o YAML do serviço correspondente dentro de `/opt/infra/<NOME_DO_NEGOCIO>/`:
