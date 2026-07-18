@@ -2,7 +2,8 @@
 
 # =============================================================================
 # Open Design Module
-# Editor de design self-hosted (Open Design) com Basic Auth via Traefik
+# Editor de design self-hosted com Basic Auth via Traefik
+# Inclui build customizada com Node.js + Codex (OpenAI)
 # =============================================================================
 
 setup_open_design_vars() {
@@ -34,12 +35,79 @@ setup_open_design_vars() {
         OPEN_DESIGN_HASH="${OPEN_DESIGN_USER}:\$HASH_PENDENTE"
     fi
 
+    # OpenAI API Key para o Codex
+    echo -e ""
+    echo -ne "${CYAN}🤖 OpenAI API Key para o Open Design (sk-... ou Enter para pular): ${RESET}"
+    read OPEN_DESIGN_OPENAI_KEY < /dev/tty || true
+    if [ -n "$OPEN_DESIGN_OPENAI_KEY" ]; then
+        print_success "OpenAI API Key configurada"
+    else
+        OPEN_DESIGN_OPENAI_KEY=""
+        print_info "OpenAI API Key não configurada — pode ser adicionada depois no YAML"
+    fi
+
     export OPEN_DESIGN_DOMAIN OPEN_DESIGN_USER OPEN_DESIGN_PASSWORD OPEN_DESIGN_HASH
+    export OPEN_DESIGN_OPENAI_KEY
+}
+
+# Detecta o gerenciador de pacotes da imagem base (apk = Alpine, apt = Debian)
+_detect_open_design_pkg_manager() {
+    docker run --rm --entrypoint sh docker.io/vanjayak/open-design:latest \
+        -c "command -v apk >/dev/null 2>&1 && echo apk || echo apt" 2>/dev/null || echo "apk"
+}
+
+_build_open_design_image() {
+    local DATA_DIR="/opt/infra/${BUSINESS_NAME}/open-design"
+    local IMAGE_TAG="${BUSINESS_NAME}/open-design-custom:latest"
+
+    print_step "BUILD — IMAGEM CUSTOMIZADA DO OPEN DESIGN (Node.js + Codex)"
+
+    print_info "Detectando sistema de pacotes da imagem base..."
+    local PKG_MGR
+    PKG_MGR=$(_detect_open_design_pkg_manager)
+    print_info "Gerenciador de pacotes detectado: ${PKG_MGR}"
+
+    mkdir -p "${DATA_DIR}"
+
+    if [ "$PKG_MGR" = "apk" ]; then
+        # Alpine
+        cat > "${DATA_DIR}/Dockerfile" <<'DOCKERFILE'
+FROM docker.io/vanjayak/open-design:latest
+USER root
+RUN apk add --no-cache nodejs npm && \
+    npm install -g @openai/codex
+USER node
+DOCKERFILE
+    else
+        # Debian/Ubuntu
+        cat > "${DATA_DIR}/Dockerfile" <<'DOCKERFILE'
+FROM docker.io/vanjayak/open-design:latest
+USER root
+RUN apt-get update && apt-get install -y nodejs npm && \
+    npm install -g @openai/codex
+USER node
+DOCKERFILE
+    fi
+
+    print_success "Dockerfile criado (${PKG_MGR})"
+
+    print_info "Iniciando build de '${IMAGE_TAG}' (pode levar alguns minutos)..."
+    if docker build -t "${IMAGE_TAG}" "${DATA_DIR}"; then
+        print_success "Imagem '${IMAGE_TAG}' criada com sucesso!"
+        OPEN_DESIGN_IMAGE="${IMAGE_TAG}"
+    else
+        print_warning "Falha no build da imagem customizada — usando imagem padrão"
+        OPEN_DESIGN_IMAGE="docker.io/vanjayak/open-design:latest"
+    fi
+
+    export OPEN_DESIGN_IMAGE
 }
 
 generate_open_design_yaml() {
     local DATA_DIR="/opt/infra/${BUSINESS_NAME}/open-design"
-    # Converter $ para $$ no hash para o Traefik YAML (Docker Swarm labels requerem $$)
+    # Usar imagem customizada se disponível, senão a padrão
+    local IMAGE="${OPEN_DESIGN_IMAGE:-docker.io/vanjayak/open-design:latest}"
+    # Converter $ para $$ no hash para o Traefik YAML
     local _OD_HASH
     _OD_HASH=$(printf '%s' "${OPEN_DESIGN_HASH:-}" | sed 's/\$/\$\$/g')
 
@@ -50,7 +118,7 @@ services:
 
   # ─── Open Design ──────────────────────────────────────────────────────────
   open-design:
-    image: docker.io/vanjayak/open-design:latest
+    image: ${IMAGE}
 
     environment:
       OD_DISABLE_API_AUTH: "1"
@@ -58,6 +126,8 @@ services:
       OD_PORT: "7456"
       OPEN_DESIGN_ALLOWED_ORIGINS: "https://${OPEN_DESIGN_DOMAIN}"
       OD_ALLOWED_ORIGINS: "https://${OPEN_DESIGN_DOMAIN}"
+      OD_API_TOKEN: ""
+      OPENAI_API_KEY: "${OPEN_DESIGN_OPENAI_KEY:-}"
 
     volumes:
       - open_design_data:/app/.od
@@ -114,47 +184,23 @@ deploy_open_design() {
 
     print_step "DEPLOY OPEN DESIGN"
 
+    # Criar diretórios e ajustar permissões
     print_info "Criando diretório de dados..."
     mkdir -p "${DATA_DIR}/data"
-    chmod 755 "${DATA_DIR}/data"
-    print_success "Diretório ${DATA_DIR}/data criado"
+    chmod -R 777 "${DATA_DIR}"
+    chown -R 1000:1000 "${DATA_DIR}"
+    print_success "Diretório ${DATA_DIR} criado com permissões corretas"
+
+    # Build da imagem customizada
+    _build_open_design_image
+
+    # Regenerar YAML com a imagem correta (pós-build)
+    generate_open_design_yaml
 
     print_info "Deploying Open Design..."
     docker stack deploy --detach=true -c 26.open-design.yaml open_design >/dev/null 2>&1
     print_success "Stack 'open_design' enviada para o Swarm"
     print_info "Open Design iniciando em background."
-}
-
-_verify_open_design_running() {
-    print_step "VERIFICAÇÃO OPEN DESIGN"
-
-    local HEALTHY=false
-    local OD_CONTAINER=""
-
-    for i in {1..8}; do
-        OD_CONTAINER=$(docker ps -q -f name=open_design_open-design)
-        if [ -n "$OD_CONTAINER" ]; then
-            if docker exec "$OD_CONTAINER" \
-                wget -qO- http://localhost:7456/ >/dev/null 2>&1; then
-                HEALTHY=true
-                break
-            fi
-        fi
-        echo -ne "  ${INFO} ${CYAN}Verificando Open Design... (${i}/8)${RESET}\r"
-        sleep 5
-    done
-
-    echo ""
-
-    if [ "$HEALTHY" = true ]; then
-        print_success "Open Design está ${BOLD}rodando e saudável${RESET} ✔"
-        docker service ls --filter name=open_design_open-design \
-            --format "    {{.Name}}  replicas={{.Replicas}}" 2>/dev/null || true
-    else
-        print_warning "Open Design ainda não respondeu."
-        echo -e "  ${ARROW} Ver logs: ${DIM}docker service logs -f open_design_open-design${RESET}"
-        echo -e "  ${ARROW} Status:   ${DIM}docker service ps open_design_open-design${RESET}"
-    fi
 }
 
 print_open_design_summary() {
