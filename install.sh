@@ -91,6 +91,28 @@ print_banner
 check_root
 detect_hardware
 
+# ── Dica de credentials.env antes de começar ─────────────────────────────────
+echo -e ""
+echo -e "${BOLD}${CYAN}╔══════════════════════════════════════════════════════════════╗${RESET}"
+echo -e "${BOLD}${CYAN}║   💡 DICA — Instalação mais rápida com credentials.env       ║${RESET}"
+echo -e "${BOLD}${CYAN}╚══════════════════════════════════════════════════════════════╝${RESET}"
+echo -e ""
+echo -e "  Se você já tem um ${BOLD}credentials.env${RESET} de uma instalação anterior,"
+echo -e "  coloque-o na pasta correta ${BOLD}antes${RESET} de informar o nome do negócio:"
+echo -e ""
+echo -e "  ${ARROW} ${BOLD}1.${RESET} Abra outro terminal e copie o arquivo:"
+echo -e "       ${DIM}mkdir -p /var/log/NOME_DO_NEGOCIO${RESET}"
+echo -e "       ${DIM}cp /caminho/credentials.env /var/log/NOME_DO_NEGOCIO/credentials.env${RESET}"
+echo -e ""
+echo -e "  ${ARROW} ${BOLD}2.${RESET} Volte aqui e informe o mesmo nome do negócio."
+echo -e "       O instalador vai detectar o arquivo e perguntar se quer reutilizá-lo."
+echo -e ""
+echo -e "  ${DIM}Sem o arquivo, você precisará preencher todos os dados manualmente.${RESET}"
+echo -e ""
+echo -ne "${BOLD}Pressione Enter para continuar...${RESET}"
+read < /dev/tty || true
+echo -e ""
+
 # 2. Business Configuration
 print_step "CONFIGURAÇÃO DO NEGÓCIO"
 while true; do
