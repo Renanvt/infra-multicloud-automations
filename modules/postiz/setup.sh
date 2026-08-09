@@ -524,18 +524,60 @@ TEMPORAL_CFG
     docker stack deploy --detach=true -c 22.postiz.yaml postiz >/dev/null 2>&1
     print_success "Stack 'postiz' enviada para o Swarm"
 
-    # O Temporal usa o alias DNS 'temporal-internal' definido no YAML
-    # Não é necessário corrigir IP — o Docker Swarm resolve pelo nome do serviço
-    print_info "Aguardando backend do Postiz inicializar (Temporal + Elasticsearch ~3 min)..."
-    for j in {1..30}; do
-        sleep 10
-        if docker service logs --since 30s postiz_postiz 2>/dev/null | grep -q "Backend started successfully"; then
-            print_success "Postiz backend rodando ✔"
-            break
+    # O Temporal escuta na rede network_swarm_public, não na postiz_internal
+    print_info "Aguardando Temporal Postiz inicializar (90s)..."
+    sleep 90
+
+    local TEMPORAL_IP=""
+    for i in {1..15}; do
+        local TEMPORAL_CID
+        TEMPORAL_CID=$(docker ps -q -f name=postiz_postiz_temporal 2>/dev/null | head -1)
+        if [ -n "$TEMPORAL_CID" ]; then
+            TEMPORAL_IP=$(docker exec "$TEMPORAL_CID" netstat -tlnp 2>/dev/null \
+                | grep ':7233' | grep -o '[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*' | grep -v '0\.0\.0\.0' | head -1)
+            if [ -z "$TEMPORAL_IP" ]; then
+                TEMPORAL_IP=$(docker inspect "$TEMPORAL_CID" 2>/dev/null \
+                    | python3 -c "
+import sys, json
+try:
+    nets = json.load(sys.stdin)[0]['NetworkSettings']['Networks']
+    for k,v in nets.items():
+        if 'swarm_public' in k:
+            print(v['IPAddress']); break
+except: pass
+" 2>/dev/null | head -1)
+            fi
+            [ -n "$TEMPORAL_IP" ] && break
         fi
-        echo -ne "  ${INFO} ${CYAN}Aguardando backend Postiz... (${j}/30)${RESET}\r"
+        echo -ne "  ${INFO} ${CYAN}Aguardando Temporal Postiz... (${i}/15)${RESET}\r"
+        sleep 6
     done
     echo ""
+
+    if [ -n "$TEMPORAL_IP" ]; then
+        print_info "IP Temporal Postiz (rede swarm_public): ${TEMPORAL_IP}"
+        docker service update --detach=true \
+            --env-add "TEMPORAL_ADDRESS=${TEMPORAL_IP}:7233" \
+            postiz_postiz >/dev/null 2>&1
+        print_success "TEMPORAL_ADDRESS → ${TEMPORAL_IP}:7233 ✔"
+
+        print_info "Aguardando backend do Postiz (pode levar 2-3 min)..."
+        for j in {1..30}; do
+            sleep 10
+            if docker service logs --since 30s postiz_postiz 2>/dev/null | grep -q "Backend started successfully"; then
+                print_success "Postiz backend rodando ✔"
+                break
+            fi
+            echo -ne "  ${INFO} ${CYAN}Aguardando backend Postiz... (${j}/30)${RESET}\r"
+        done
+        echo ""
+    else
+        print_warning "IP Temporal Postiz não detectado. Rode manualmente:"
+        echo -e "  ${DIM}TEMP=\$(docker ps -q -f name=postiz_postiz_temporal | head -1)${RESET}"
+        echo -e "  ${DIM}IP=\$(docker exec \$TEMP netstat -tlnp | grep ':7233' | grep -o '[0-9.]*' | grep -v '0.0.0.0' | head -1)${RESET}"
+        echo -e "  ${DIM}docker service update --env-add TEMPORAL_ADDRESS=\${IP}:7233 postiz_postiz${RESET}"
+    fi
+
     print_info "Postiz iniciando em background."
 }
 
