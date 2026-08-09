@@ -523,7 +523,39 @@ TEMPORAL_CFG
     print_info "Deploying Postiz..."
     docker stack deploy --detach=true -c 22.postiz.yaml postiz >/dev/null 2>&1
     print_success "Stack 'postiz' enviada para o Swarm"
-    print_info "Postiz iniciando em background (Temporal + Elasticsearch levam ~2min para ficar prontos)."
+
+    # Aguardar o Temporal inicializar e corrigir o TEMPORAL_ADDRESS
+    print_info "Aguardando Temporal inicializar para corrigir IP (60s)..."
+    sleep 60
+
+    local TEMPORAL_IP=""
+    for i in {1..12}; do
+        TEMPORAL_IP=$(docker inspect $(docker ps -q -f name=postiz_postiz_temporal 2>/dev/null) 2>/dev/null \
+            | grep '"IPAddress"' | grep -o '10\.[0-9.]*' | head -1)
+        if [ -n "$TEMPORAL_IP" ]; then
+            break
+        fi
+        echo -ne "  ${INFO} ${CYAN}Aguardando Temporal container... (${i}/12)${RESET}\r"
+        sleep 5
+    done
+    echo ""
+
+    if [ -n "$TEMPORAL_IP" ]; then
+        print_info "IP do Temporal detectado: ${TEMPORAL_IP} — atualizando TEMPORAL_ADDRESS..."
+        docker service update --detach=true \
+            --env-add "TEMPORAL_ADDRESS=${TEMPORAL_IP}:7233" \
+            postiz_postiz >/dev/null 2>&1 && \
+            print_success "TEMPORAL_ADDRESS atualizado para ${TEMPORAL_IP}:7233 ✔" || \
+            print_warning "Não foi possível atualizar automaticamente — rode manualmente:"
+        echo -e "  ${DIM}docker service update --env-add TEMPORAL_ADDRESS=${TEMPORAL_IP}:7233 postiz_postiz${RESET}"
+    else
+        print_warning "Não foi possível detectar o IP do Temporal automaticamente."
+        echo -e "  ${DIM}Rode após o deploy:${RESET}"
+        echo -e "  ${DIM}IP=\$(docker inspect \$(docker ps -q -f name=postiz_postiz_temporal) | grep '\"IPAddress\"' | grep -o '10\\.[0-9.]*' | head -1)${RESET}"
+        echo -e "  ${DIM}docker service update --env-add TEMPORAL_ADDRESS=\${IP}:7233 postiz_postiz${RESET}"
+    fi
+
+    print_info "Postiz iniciando em background."
 }
 
 _verify_postiz_running() {
