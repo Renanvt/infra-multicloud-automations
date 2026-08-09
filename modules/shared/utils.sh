@@ -210,6 +210,8 @@ check_recovery() {
             case "$CHOICE" in
                 1)
                     print_info "Carregando credenciais..."
+                    # Converter CRLF para LF caso o arquivo tenha sido editado no Windows
+                    sed -i 's/\r//' "$CRED_FILE" 2>/dev/null || true
                     source "$CRED_FILE"
                     export CREDENTIALS_RESTORED=true
                     # Criar checkpoint para consistência
@@ -340,6 +342,7 @@ check_recovery() {
             case "$CRED_CHOICE" in
                 1)
                     print_info "Carregando credenciais anteriores..."
+                    sed -i 's/\r//' "$CRED_FILE" 2>/dev/null || true
                     source "$CRED_FILE"
                     export CREDENTIALS_RESTORED=true
 
