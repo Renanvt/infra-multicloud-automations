@@ -540,11 +540,17 @@ configure_chatwoot() {
     ADMIN_NAME="${ADMIN_NAME^}"
     
     # Tenta criar — se já existir, busca o existente
-    CREATE_USER_CMD="
+    CREATE_USER_CMD=$(cat <<'RUBY_END'
 begin
-  u = User.find_by(email: '${CHATWOOT_ADMIN_EMAIL}')
+  u = User.find_by(email: 'PLACEHOLDER_EMAIL')
   if u.nil?
-    u = User.new(name: '${ADMIN_NAME}', email: '${CHATWOOT_ADMIN_EMAIL}', password: '${ADMIN_PASSWORD}', password_confirmation: '${ADMIN_PASSWORD}', confirmed_at: Time.now)
+    u = User.new(
+      name: 'PLACEHOLDER_NAME',
+      email: 'PLACEHOLDER_EMAIL',
+      password: 'PLACEHOLDER_PASS',
+      password_confirmation: 'PLACEHOLDER_PASS',
+      confirmed_at: Time.now
+    )
     u.skip_confirmation!
     u.save!
     puts 'Usuario criado!'
@@ -552,8 +558,13 @@ begin
     puts 'Usuario existente encontrado!'
   end
 rescue => e
-  puts \"Erro: \#{e.message}\"
-end"
+  puts "Erro: #{e.message}"
+end
+RUBY_END
+)
+    CREATE_USER_CMD="${CREATE_USER_CMD//PLACEHOLDER_EMAIL/${CHATWOOT_ADMIN_EMAIL}}"
+    CREATE_USER_CMD="${CREATE_USER_CMD//PLACEHOLDER_NAME/${ADMIN_NAME}}"
+    CREATE_USER_CMD="${CREATE_USER_CMD//PLACEHOLDER_PASS/${ADMIN_PASSWORD}}"
 
     USER_RESULT=$(docker exec -i -e REDIS_URL="redis://:${REDIS_PASSWORD}@redis_redis:6379" \
         "$CHATWOOT_CONTAINER" bundle exec rails runner "$CREATE_USER_CMD" 2>&1 | tail -3)
@@ -569,17 +580,21 @@ end"
     ACCOUNT_NAME="${BUSINESS_NAME:-Minha Empresa}"
     ACCOUNT_NAME="${ACCOUNT_NAME^}"
     
-    CREATE_ACCOUNT_CMD="
+    CREATE_ACCOUNT_CMD=$(cat <<'RUBY_END'
 begin
-  u = User.find_by(email: '${CHATWOOT_ADMIN_EMAIL}') || User.first
-  a = Account.first_or_create!(name: '${ACCOUNT_NAME}')
+  u = User.find_by(email: 'PLACEHOLDER_EMAIL') || User.first
+  a = Account.first_or_create!(name: 'PLACEHOLDER_ACCOUNT')
   au = AccountUser.find_or_initialize_by(account: a, user: u)
   au.role = :administrator
   au.save!
   puts 'Conta criada e usuario vinculado'
 rescue => e
-  puts \"Erro: \#{e.message}\"
-end"
+  puts "Erro: #{e.message}"
+end
+RUBY_END
+)
+    CREATE_ACCOUNT_CMD="${CREATE_ACCOUNT_CMD//PLACEHOLDER_EMAIL/${CHATWOOT_ADMIN_EMAIL}}"
+    CREATE_ACCOUNT_CMD="${CREATE_ACCOUNT_CMD//PLACEHOLDER_ACCOUNT/${ACCOUNT_NAME}}"
     
     ACCOUNT_RESULT=$(docker exec -i -e REDIS_URL="redis://:${REDIS_PASSWORD}@redis_redis:6379" \
         "$CHATWOOT_CONTAINER" bundle exec rails runner "$CREATE_ACCOUNT_CMD" 2>&1 | tail -3)

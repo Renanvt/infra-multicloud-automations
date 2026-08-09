@@ -105,11 +105,7 @@ deploy_grafana() {
     print_info "Deploying Grafana..."
     docker stack deploy --detach=true -c 24.grafana.yaml grafana >/dev/null 2>&1
     print_success "Stack 'grafana' enviada para o Swarm"
-
-    print_info "Aguardando Grafana inicializar (20s)..."
-    sleep 20
-
-    _verify_grafana_running
+    print_info "Grafana iniciando em background (pode levar ~1 minuto para ficar acessível)."
 }
 
 _verify_grafana_running() {
