@@ -314,59 +314,18 @@ TEMPORAL_CFG
     docker stack deploy --detach=true -c 28.postiz2.yaml postiz2 >/dev/null 2>&1
     print_success "Stack 'postiz2' enviada para o Swarm"
 
-    # Aguardar Temporal do Postiz 2 e corrigir TEMPORAL_ADDRESS com IP da rede correta
-    print_info "Aguardando Temporal do Postiz 2 inicializar (90s)..."
-    sleep 90
-
-    local TEMPORAL2_IP=""
-    for i in {1..15}; do
-        local TEMPORAL2_CID
-        TEMPORAL2_CID=$(docker ps -q -f name=postiz2_postiz2_temporal 2>/dev/null | head -1)
-        if [ -n "$TEMPORAL2_CID" ]; then
-            TEMPORAL2_IP=$(docker inspect "$TEMPORAL2_CID" 2>/dev/null \
-                | python3 -c "
-import sys, json
-try:
-    nets = json.load(sys.stdin)[0]['NetworkSettings']['Networks']
-    for k,v in nets.items():
-        if 'postiz2_internal' in k:
-            print(v['IPAddress'])
+    # O TEMPORAL_ADDRESS usa o nome do serviço Docker (postiz2_temporal) que resolve
+    # via DNS interno da rede overlay — sem IP hardcoded que muda a cada deploy
+    print_info "Aguardando backend do Postiz 2 inicializar (Temporal + Elasticsearch ~3 min)..."
+    for j in {1..30}; do
+        sleep 10
+        if docker service logs --since 30s postiz2_postiz2 2>/dev/null | grep -q "Backend started successfully"; then
+            print_success "Postiz 2 backend rodando ✔"
             break
-except: pass
-" 2>/dev/null | head -1)
-            [ -n "$TEMPORAL2_IP" ] && break
         fi
-        echo -ne "  ${INFO} ${CYAN}Aguardando Temporal Postiz 2... (${i}/15)${RESET}\r"
-        sleep 6
+        echo -ne "  ${INFO} ${CYAN}Aguardando backend Postiz 2... (${j}/30)${RESET}\r"
     done
     echo ""
-
-    if [ -n "$TEMPORAL2_IP" ]; then
-        print_info "IP Temporal Postiz 2 (rede postiz2_internal): ${TEMPORAL2_IP}"
-        docker service update --detach=true \
-            --env-add "TEMPORAL_ADDRESS=${TEMPORAL2_IP}:7233" \
-            postiz2_postiz2 >/dev/null 2>&1 && \
-            print_success "TEMPORAL_ADDRESS Postiz 2 → ${TEMPORAL2_IP}:7233 ✔" || \
-            print_warning "Atualização falhou — rode manualmente:"
-        echo -e "  ${DIM}docker service update --env-add TEMPORAL_ADDRESS=${TEMPORAL2_IP}:7233 postiz2_postiz2${RESET}"
-
-        # Aguardar backend confirmar que subiu
-        print_info "Aguardando backend do Postiz 2 inicializar (pode levar 2-3 min)..."
-        for j in {1..24}; do
-            sleep 10
-            if docker service logs --since 30s postiz2_postiz2 2>/dev/null | grep -q "Backend started successfully"; then
-                print_success "Postiz 2 backend rodando ✔"
-                break
-            fi
-            echo -ne "  ${INFO} ${CYAN}Aguardando backend Postiz 2... (${j}/24)${RESET}\r"
-        done
-        echo ""
-    else
-        print_warning "IP Temporal Postiz 2 não detectado. Rode após o deploy:"
-        echo -e "  ${DIM}IP=\$(docker inspect \$(docker ps -q -f name=postiz2_postiz2_temporal) | python3 -c \"import sys,json; nets=json.load(sys.stdin)[0]['NetworkSettings']['Networks']; [print(v['IPAddress']) for k,v in nets.items() if 'postiz2_internal' in k]\")${RESET}"
-        echo -e "  ${DIM}docker service update --env-add TEMPORAL_ADDRESS=\${IP}:7233 postiz2_postiz2${RESET}"
-    fi
-
     print_info "Postiz 2 iniciando em background."
     print_info "Valide com: curl -I https://${POSTIZ2_DOMAIN}/api/auth/can-register"
 }
