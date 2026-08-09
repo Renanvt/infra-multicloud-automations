@@ -188,8 +188,8 @@ deploy_open_design() {
     print_info "Criando diretório de dados..."
     mkdir -p "${DATA_DIR}/data"
     chmod -R 777 "${DATA_DIR}"
-    chown -R 1000:1000 "${DATA_DIR}"
-    print_success "Diretório ${DATA_DIR} criado com permissões corretas"
+    chown -R 1001:1001 "${DATA_DIR}"
+    print_success "Diretório ${DATA_DIR} criado com permissões corretas (uid 1001)"
 
     # Build da imagem customizada
     _build_open_design_image
