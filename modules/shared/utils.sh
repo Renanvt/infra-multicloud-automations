@@ -188,6 +188,76 @@ EOF
 }
 
 check_recovery() {
+    local CRED_FILE="${LOG_DIR}/credentials.env"
+
+    # ── Detecção de credentials.env sem checkpoint (nova VM com arquivo copiado) ──
+    if [ ! -f "$CHECKPOINT_FILE" ] && [ -f "$CRED_FILE" ]; then
+        echo -e ""
+        echo -e "${BOLD}${GREEN}╔══════════════════════════════════════════════════════════╗${RESET}"
+        echo -e "${BOLD}${GREEN}║   ✅ CREDENTIALS.ENV DETECTADO                           ║${RESET}"
+        echo -e "${BOLD}${GREEN}╚══════════════════════════════════════════════════════════╝${RESET}"
+        echo -e ""
+        echo -e "  Encontramos o arquivo ${BOLD}/var/log/${BUSINESS_NAME}/credentials.env${RESET}"
+        echo -e "  com configurações de uma instalação anterior."
+        echo -e ""
+        echo -e "  ${CYAN}[1] Usar essas credenciais${RESET}  — pula toda a fase de configuração"
+        echo -e "  ${CYAN}[2] Ignorar e configurar do zero${RESET}"
+        echo -e ""
+        local CHOICE=""
+        while true; do
+            echo -ne "${GREEN}Opção (1/2): ${RESET}"
+            read CHOICE < /dev/tty || true
+            case "$CHOICE" in
+                1)
+                    print_info "Carregando credenciais..."
+                    source "$CRED_FILE"
+                    export CREDENTIALS_RESTORED=true
+                    # Criar checkpoint para consistência
+                    echo "inputs_collected" > "$CHECKPOINT_FILE"
+                    # Reativar flags de módulos
+                    [ -n "$POSTIZ_DOMAIN" ]        && ENABLE_POSTIZ=true
+                    [ -n "$POSTIZ2_DOMAIN" ]       && ENABLE_POSTIZ2=true
+                    [ -n "$PROMETHEUS_DOMAIN" ]    && ENABLE_PROMETHEUS=true && ENABLE_GRAFANA=true
+                    [ -n "$GRAFANA_DOMAIN" ]       && ENABLE_GRAFANA=true
+                    [ -n "$OPEN_DESIGN_DOMAIN" ]   && ENABLE_OPEN_DESIGN=true
+                    [ -n "$METABASE_DOMAIN" ]      && ENABLE_METABASE=true
+                    [ -n "$HERMES_DOMAIN" ]        && ENABLE_HERMES=true
+                    [ -n "$OPENCLAW_DOMAIN" ]      && ENABLE_OPENCLAW=true
+                    [ -n "$DIFY_WEB_DOMAIN" ]      && ENABLE_DIFY=true
+                    [ -n "$HERMES_DASHBOARD_DOMAIN" ] && HERMES_DASHBOARD_ENABLED=true || HERMES_DASHBOARD_ENABLED=false
+                    export ENABLE_DIFY ENABLE_OPENCLAW ENABLE_POSTIZ ENABLE_POSTIZ2
+                    export ENABLE_PROMETHEUS ENABLE_GRAFANA ENABLE_OPEN_DESIGN
+                    export ENABLE_METABASE ENABLE_HERMES HERMES_DASHBOARD_ENABLED
+                    export OPEN_DESIGN_HASH PROMETHEUS_HASH
+                    export POSTIZ2_DOMAIN POSTIZ2_JWT_SECRET
+                    export OPEN_DESIGN_OPENAI_KEY
+                    export X_API_KEY X_API_SECRET
+                    export LINKEDIN_CLIENT_ID LINKEDIN_CLIENT_SECRET
+                    export REDDIT_CLIENT_ID REDDIT_CLIENT_SECRET
+                    export FACEBOOK_APP_ID FACEBOOK_APP_SECRET
+                    export INSTAGRAM_APP_ID INSTAGRAM_APP_SECRET
+                    export YOUTUBE_CLIENT_ID YOUTUBE_CLIENT_SECRET
+                    export TIKTOK_CLIENT_ID TIKTOK_CLIENT_SECRET
+                    export PINTEREST_CLIENT_ID PINTEREST_CLIENT_SECRET
+                    export DRIBBBLE_CLIENT_ID DRIBBBLE_CLIENT_SECRET
+                    export DISCORD_CLIENT_ID DISCORD_CLIENT_SECRET DISCORD_BOT_TOKEN_ID
+                    export SLACK_ID SLACK_SECRET SLACK_SIGNING_SECRET
+                    export THREADS_APP_ID THREADS_APP_SECRET
+                    export POSTIZ_OPENAI_API_KEY
+                    print_success "Credenciais carregadas — fase de configuração será pulada"
+                    break
+                    ;;
+                2)
+                    print_info "Iniciando configuração do zero"
+                    export CREDENTIALS_RESTORED=false
+                    break
+                    ;;
+                *) print_error "Opção inválida. Digite 1 ou 2." ;;
+            esac
+        done
+        return
+    fi
+
     if [ ! -f "$CHECKPOINT_FILE" ]; then return; fi
 
     LAST_POINT=$(cat "$CHECKPOINT_FILE")
