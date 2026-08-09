@@ -534,7 +534,9 @@ configure_chatwoot() {
     
     # Criar usuário administrador
     print_info "Criando usuário administrador..."
-    ADMIN_PASSWORD=$(openssl rand -base64 12 | tr -d '/+=' | head -c 16)
+    # Chatwoot v3.8+ exige pelo menos 1 caractere especial na senha
+    ADMIN_PASSWORD=$(openssl rand -base64 14 | tr -d '/+=' | head -c 12)
+    ADMIN_PASSWORD="${ADMIN_PASSWORD}@1x"
     
     ADMIN_NAME="${BUSINESS_NAME:-Admin}"
     ADMIN_NAME="${ADMIN_NAME^}"
