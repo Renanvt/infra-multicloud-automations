@@ -560,6 +560,18 @@ except: pass
             postiz_postiz >/dev/null 2>&1 && \
             print_success "TEMPORAL_ADDRESS atualizado para ${TEMPORAL_IP}:7233 ✔" || \
             print_warning "Não foi possível atualizar automaticamente"
+
+        # Aguardar backend confirmar que subiu
+        print_info "Aguardando backend do Postiz inicializar (pode levar 2-3 min)..."
+        for j in {1..24}; do
+            sleep 10
+            if docker service logs --since 30s postiz_postiz 2>/dev/null | grep -q "Backend started successfully"; then
+                print_success "Postiz backend rodando ✔"
+                break
+            fi
+            echo -ne "  ${INFO} ${CYAN}Aguardando backend Postiz... (${j}/24)${RESET}\r"
+        done
+        echo ""
     else
         print_warning "IP do Temporal não detectado — rode manualmente após o deploy:"
         echo -e "  ${DIM}IP=\$(docker inspect \$(docker ps -q -f name=postiz_postiz_temporal) | python3 -c \"import sys,json; nets=json.load(sys.stdin)[0]['NetworkSettings']['Networks']; [print(v['IPAddress']) for k,v in nets.items() if 'postiz_internal' in k and 'postiz2' not in k]\")${RESET}"
