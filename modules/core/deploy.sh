@@ -632,7 +632,7 @@ print_summary() {
     # Como a instalação pode durar 10-20 min, forçamos um restart aqui no final
     # para que o usuário tenha a janela completa disponível ao acessar o painel.
     print_step "REINICIANDO PORTAINER (janela de criação de senha)"
-    if docker service update --force portainer_portainer >/dev/null 2>&1; then
+    if docker service update --detach=true --force portainer_portainer >/dev/null 2>&1; then
         print_success "Portainer reiniciado — janela de 5 minutos para criar senha iniciada agora"
     else
         print_warning "Não foi possível reiniciar o Portainer automaticamente"

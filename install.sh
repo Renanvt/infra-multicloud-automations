@@ -91,6 +91,17 @@ print_banner
 check_root
 detect_hardware
 
+# Garante que print_summary sempre rode ao sair, mesmo com Ctrl+C ou erro
+_summary_shown=false
+_ensure_summary() {
+    if [ "$_summary_shown" = false ] && [ "${CREDENTIALS_RESTORED:-false}" != false ] || \
+       [ "$_summary_shown" = false ] && [ -n "${BUSINESS_NAME:-}" ]; then
+        _summary_shown=true
+        print_summary || true
+    fi
+}
+trap '_ensure_summary' EXIT
+
 # ── Dica de credentials.env antes de começar ─────────────────────────────────
 echo -e ""
 echo -e "${BOLD}${CYAN}╔══════════════════════════════════════════════════════════════╗${RESET}"
@@ -332,6 +343,7 @@ save_credentials
 deploy_services || true
 
 # 11. Final Summary — sempre executa, mesmo se algo falhou antes
+_summary_shown=true
 print_summary || true
 
 # 12. Backup Setup (usa read — pode abortar em curl|bash, mas summary já foi exibido)
