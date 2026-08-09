@@ -272,6 +272,15 @@ deploy_services() {
 
         if [ "$PG_READY" = false ]; then
             print_warning "Postgres ainda não respondeu via psql — tentando criar bancos mesmo assim..."
+        else
+            # Aumentar max_connections para suportar múltiplos serviços
+            print_info "Configurando max_connections = 300 no Postgres..."
+            docker exec -u root "$POSTGRES_CONTAINER" sh -c \
+                "grep -q 'max_connections = 300' /var/lib/postgresql/data/postgresql.conf 2>/dev/null || \
+                 echo 'max_connections = 300' >> /var/lib/postgresql/data/postgresql.conf" && \
+                docker exec -i "$POSTGRES_CONTAINER" psql -U postgres -c "SELECT pg_reload_conf();" >/dev/null 2>&1 && \
+                print_success "max_connections = 300 configurado" || \
+                print_warning "Não foi possível configurar max_connections — execute manualmente se necessário"
         fi
     fi
 
