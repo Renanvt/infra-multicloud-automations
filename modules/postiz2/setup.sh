@@ -313,7 +313,49 @@ TEMPORAL_CFG
     print_info "Deploying Postiz 2..."
     docker stack deploy --detach=true -c 28.postiz2.yaml postiz2 >/dev/null 2>&1
     print_success "Stack 'postiz2' enviada para o Swarm"
-    print_info "Postiz 2 iniciando em background (Temporal + Elasticsearch levam ~2min)."
+
+    # Aguardar Temporal do Postiz 2 e corrigir TEMPORAL_ADDRESS com IP da rede correta
+    print_info "Aguardando Temporal do Postiz 2 inicializar (90s)..."
+    sleep 90
+
+    local TEMPORAL2_IP=""
+    for i in {1..15}; do
+        local TEMPORAL2_CID
+        TEMPORAL2_CID=$(docker ps -q -f name=postiz2_postiz2_temporal 2>/dev/null | head -1)
+        if [ -n "$TEMPORAL2_CID" ]; then
+            TEMPORAL2_IP=$(docker inspect "$TEMPORAL2_CID" 2>/dev/null \
+                | python3 -c "
+import sys, json
+try:
+    nets = json.load(sys.stdin)[0]['NetworkSettings']['Networks']
+    for k,v in nets.items():
+        if 'postiz2_internal' in k:
+            print(v['IPAddress'])
+            break
+except: pass
+" 2>/dev/null | head -1)
+            [ -n "$TEMPORAL2_IP" ] && break
+        fi
+        echo -ne "  ${INFO} ${CYAN}Aguardando Temporal Postiz 2... (${i}/15)${RESET}\r"
+        sleep 6
+    done
+    echo ""
+
+    if [ -n "$TEMPORAL2_IP" ]; then
+        print_info "IP Temporal Postiz 2 (rede postiz2_internal): ${TEMPORAL2_IP}"
+        docker service update --detach=true \
+            --env-add "TEMPORAL_ADDRESS=${TEMPORAL2_IP}:7233" \
+            postiz2_postiz2 >/dev/null 2>&1 && \
+            print_success "TEMPORAL_ADDRESS Postiz 2 → ${TEMPORAL2_IP}:7233 ✔" || \
+            print_warning "Atualização falhou — rode manualmente:"
+        echo -e "  ${DIM}docker service update --env-add TEMPORAL_ADDRESS=${TEMPORAL2_IP}:7233 postiz2_postiz2${RESET}"
+    else
+        print_warning "IP Temporal Postiz 2 não detectado. Rode após o deploy:"
+        echo -e "  ${DIM}IP=\$(docker inspect \$(docker ps -q -f name=postiz2_postiz2_temporal) | python3 -c \"import sys,json; nets=json.load(sys.stdin)[0]['NetworkSettings']['Networks']; [print(v['IPAddress']) for k,v in nets.items() if 'postiz2_internal' in k]\")${RESET}"
+        echo -e "  ${DIM}docker service update --env-add TEMPORAL_ADDRESS=\${IP}:7233 postiz2_postiz2${RESET}"
+    fi
+
+    print_info "Postiz 2 iniciando em background."
     print_info "Valide com: curl -I https://${POSTIZ2_DOMAIN}/api/auth/can-register"
 }
 

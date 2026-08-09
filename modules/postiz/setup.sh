@@ -525,33 +525,44 @@ TEMPORAL_CFG
     print_success "Stack 'postiz' enviada para o Swarm"
 
     # Aguardar o Temporal inicializar e corrigir o TEMPORAL_ADDRESS
-    print_info "Aguardando Temporal inicializar para corrigir IP (60s)..."
-    sleep 60
+    print_info "Aguardando Temporal inicializar para corrigir IP (90s)..."
+    sleep 90
 
+    # Detectar o IP do Temporal na rede postiz_internal (único lugar acessível pelo Postiz)
     local TEMPORAL_IP=""
-    for i in {1..12}; do
-        TEMPORAL_IP=$(docker inspect $(docker ps -q -f name=postiz_postiz_temporal 2>/dev/null) 2>/dev/null \
-            | grep '"IPAddress"' | grep -o '10\.[0-9.]*' | head -1)
-        if [ -n "$TEMPORAL_IP" ]; then
+    for i in {1..15}; do
+        local TEMPORAL_CID
+        TEMPORAL_CID=$(docker ps -q -f name=postiz_postiz_temporal 2>/dev/null | head -1)
+        if [ -n "$TEMPORAL_CID" ]; then
+            # Pegar IP especificamente da rede network_postiz_internal
+            TEMPORAL_IP=$(docker inspect "$TEMPORAL_CID" 2>/dev/null \
+                | python3 -c "
+import sys, json
+try:
+    nets = json.load(sys.stdin)[0]['NetworkSettings']['Networks']
+    for k,v in nets.items():
+        if 'postiz_internal' in k and 'postiz2' not in k:
+            print(v['IPAddress'])
             break
+except: pass
+" 2>/dev/null | head -1)
+            [ -n "$TEMPORAL_IP" ] && break
         fi
-        echo -ne "  ${INFO} ${CYAN}Aguardando Temporal container... (${i}/12)${RESET}\r"
-        sleep 5
+        echo -ne "  ${INFO} ${CYAN}Aguardando Temporal container... (${i}/15)${RESET}\r"
+        sleep 6
     done
     echo ""
 
     if [ -n "$TEMPORAL_IP" ]; then
-        print_info "IP do Temporal detectado: ${TEMPORAL_IP} — atualizando TEMPORAL_ADDRESS..."
+        print_info "IP do Temporal na rede interna: ${TEMPORAL_IP} — atualizando TEMPORAL_ADDRESS..."
         docker service update --detach=true \
             --env-add "TEMPORAL_ADDRESS=${TEMPORAL_IP}:7233" \
             postiz_postiz >/dev/null 2>&1 && \
             print_success "TEMPORAL_ADDRESS atualizado para ${TEMPORAL_IP}:7233 ✔" || \
-            print_warning "Não foi possível atualizar automaticamente — rode manualmente:"
-        echo -e "  ${DIM}docker service update --env-add TEMPORAL_ADDRESS=${TEMPORAL_IP}:7233 postiz_postiz${RESET}"
+            print_warning "Não foi possível atualizar automaticamente"
     else
-        print_warning "Não foi possível detectar o IP do Temporal automaticamente."
-        echo -e "  ${DIM}Rode após o deploy:${RESET}"
-        echo -e "  ${DIM}IP=\$(docker inspect \$(docker ps -q -f name=postiz_postiz_temporal) | grep '\"IPAddress\"' | grep -o '10\\.[0-9.]*' | head -1)${RESET}"
+        print_warning "IP do Temporal não detectado — rode manualmente após o deploy:"
+        echo -e "  ${DIM}IP=\$(docker inspect \$(docker ps -q -f name=postiz_postiz_temporal) | python3 -c \"import sys,json; nets=json.load(sys.stdin)[0]['NetworkSettings']['Networks']; [print(v['IPAddress']) for k,v in nets.items() if 'postiz_internal' in k and 'postiz2' not in k]\")${RESET}"
         echo -e "  ${DIM}docker service update --env-add TEMPORAL_ADDRESS=\${IP}:7233 postiz_postiz${RESET}"
     fi
 
