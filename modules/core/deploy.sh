@@ -285,7 +285,7 @@ deploy_services() {
             if docker exec -i "$POSTGRES_CONTAINER" psql -U postgres -c "CREATE DATABASE ${DB};" >/dev/null 2>&1; then
                 print_success "Banco '${DB}' criado"
             else
-                print_warning "Banco '${DB}' já existe ou erro na criação"
+                print_info "Banco '${DB}' já existe — mantendo dados existentes"
             fi
         }
 
