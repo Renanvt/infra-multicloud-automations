@@ -524,20 +524,16 @@ TEMPORAL_CFG
     docker stack deploy --detach=true -c 22.postiz.yaml postiz >/dev/null 2>&1
     print_success "Stack 'postiz' enviada para o Swarm"
 
-    # O Temporal escuta na rede network_swarm_public, não na postiz_internal
-    print_info "Aguardando Temporal Postiz inicializar (90s)..."
-    sleep 90
-
+    # Aguardar o Temporal abrir a porta 7233 antes de atualizar o Postiz
+    print_info "Aguardando Temporal Postiz ficar pronto (porta 7233)..."
     local TEMPORAL_IP=""
-    for i in {1..15}; do
+    for i in {1..30}; do
         local TEMPORAL_CID
         TEMPORAL_CID=$(docker ps -q -f name=postiz_postiz_temporal 2>/dev/null | head -1)
         if [ -n "$TEMPORAL_CID" ]; then
-            TEMPORAL_IP=$(docker exec "$TEMPORAL_CID" netstat -tlnp 2>/dev/null \
-                | grep ':7233' | grep -o '[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*' | grep -v '0\.0\.0\.0' | head -1)
-            if [ -z "$TEMPORAL_IP" ]; then
-                TEMPORAL_IP=$(docker inspect "$TEMPORAL_CID" 2>/dev/null \
-                    | python3 -c "
+            local _IP
+            _IP=$(docker inspect "$TEMPORAL_CID" 2>/dev/null \
+                | python3 -c "
 import sys, json
 try:
     nets = json.load(sys.stdin)[0]['NetworkSettings']['Networks']
@@ -546,16 +542,18 @@ try:
             print(v['IPAddress']); break
 except: pass
 " 2>/dev/null | head -1)
+            if [ -n "$_IP" ] && docker exec "$TEMPORAL_CID" sh -c "timeout 2 bash -c 'echo > /dev/tcp/${_IP}/7233'" 2>/dev/null; then
+                TEMPORAL_IP="$_IP"
+                break
             fi
-            [ -n "$TEMPORAL_IP" ] && break
         fi
-        echo -ne "  ${INFO} ${CYAN}Aguardando Temporal Postiz... (${i}/15)${RESET}\r"
-        sleep 6
+        echo -ne "  ${INFO} ${CYAN}Aguardando Temporal Postiz... (${i}/30)${RESET}\r"
+        sleep 10
     done
     echo ""
 
     if [ -n "$TEMPORAL_IP" ]; then
-        print_info "IP Temporal Postiz (rede swarm_public): ${TEMPORAL_IP}"
+        print_info "Temporal Postiz pronto! IP: ${TEMPORAL_IP}"
         docker service update --detach=true \
             --env-add "TEMPORAL_ADDRESS=${TEMPORAL_IP}:7233" \
             postiz_postiz >/dev/null 2>&1
@@ -572,10 +570,9 @@ except: pass
         done
         echo ""
     else
-        print_warning "IP Temporal Postiz não detectado. Rode manualmente:"
+        print_warning "Temporal Postiz não ficou pronto. Rode manualmente:"
         echo -e "  ${DIM}TEMP=\$(docker ps -q -f name=postiz_postiz_temporal | head -1)${RESET}"
-        echo -e "  ${DIM}IP=\$(docker exec \$TEMP netstat -tlnp | grep ':7233' | grep -o '[0-9.]*' | grep -v '0.0.0.0' | head -1)${RESET}"
-        echo -e "  ${DIM}docker service update --env-add TEMPORAL_ADDRESS=\${IP}:7233 postiz_postiz${RESET}"
+        echo -e "  ${DIM}for i in {1..30}; do IP=\$(docker inspect \$TEMP | python3 -c \"...\"); docker exec \$TEMP sh -c \"timeout 2 bash -c 'echo > /dev/tcp/\${IP}/7233'\" && echo \$IP && break; sleep 10; done${RESET}"
     fi
 
     print_info "Postiz iniciando em background."
