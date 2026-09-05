@@ -76,7 +76,6 @@ FROM docker.io/vanjayak/open-design:latest
 USER root
 RUN apk add --no-cache nodejs npm && \
     npm install -g @openai/codex
-USER node
 DOCKERFILE
     else
         # Debian/Ubuntu
@@ -85,7 +84,6 @@ FROM docker.io/vanjayak/open-design:latest
 USER root
 RUN apt-get update && apt-get install -y nodejs npm && \
     npm install -g @openai/codex
-USER node
 DOCKERFILE
     fi
 
