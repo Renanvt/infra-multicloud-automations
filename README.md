@@ -305,6 +305,29 @@ sudo cat /var/log/NOME_DO_NEGOCIO/credentials.env
 > cat /var/log/alobexpress/credentials.env
 > ```
 
+### Como mover o credentials.env para a pasta correta (nova VM)
+
+Se você baixou o arquivo e o enviou para a VM via SCP ou upload, ele provavelmente ficou em `/home/seu_usuario/`. Para que o instalador detecte automaticamente, mova para a pasta correta **antes de informar o nome do negócio**:
+
+```bash
+# Substitua: seu_usuario pelo seu usuário (ex: jonatanpremium341)
+# Substitua: NOME_DO_NEGOCIO pelo nome do negócio (ex: alobexpress)
+
+# 1. Criar a pasta de destino
+mkdir -p /var/log/NOME_DO_NEGOCIO
+
+# 2. Mover/copiar o arquivo
+cp /home/seu_usuario/credentials.env /var/log/NOME_DO_NEGOCIO/credentials.env
+
+# 3. Verificar
+cat /var/log/NOME_DO_NEGOCIO/credentials.env | head -5
+```
+
+> **Importante:** o arquivo pode ter line endings Windows (CRLF) se foi editado no PC. Corrija antes de rodar o instalador:
+> ```bash
+> sed -i 's/\r//' /var/log/NOME_DO_NEGOCIO/credentials.env
+> ```
+
 ### Como alterar uma senha
 
 1. Edite o YAML do serviço correspondente dentro de `/opt/infra/<NOME_DO_NEGOCIO>/`:
