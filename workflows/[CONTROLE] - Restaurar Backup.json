@@ -1,0 +1,117 @@
+{
+  "name": "[CONTROLE] - Restaurar Backup",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "id": "manual-trigger-1",
+      "name": "Manual Trigger"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "var-repo",
+              "name": "repositorio",
+              "value": "infra-alobexpress-backup",
+              "type": "string"
+            },
+            {
+              "id": "var-username",
+              "name": "username",
+              "value": "ALOBEXPRESS",
+              "type": "string"
+            },
+            {
+              "id": "var-token",
+              "name": "token",
+              "value": "INSIRA_SEU_TOKEN_AQUI",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [200, 0],
+      "id": "set-vars-1",
+      "name": "Configurar Variáveis"
+    },
+    {
+      "parameters": {
+        "command": "=# Clone do repositório de backup\ncd /home/node\nrm -rf {{ $('Configurar Variáveis').item.json.repositorio }}\n\ngit clone https://{{ $('Configurar Variáveis').item.json.username }}:{{ $('Configurar Variáveis').item.json.token }}@github.com/{{ $('Configurar Variáveis').item.json.username }}/{{ $('Configurar Variáveis').item.json.repositorio }}.git\n\necho \"✅ Repositório clonado com sucesso\""
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [400, 0],
+      "id": "clone-repo-1",
+      "name": "Clonar Repositório"
+    },
+    {
+      "parameters": {
+        "command": "=# Importar workflows\nBACKUP_DIR=\"/home/node/{{ $('Configurar Variáveis').item.json.repositorio }}\"\nWORKFLOWS_DIR=\"$BACKUP_DIR/workflows\"\n\nif [ -d \"$WORKFLOWS_DIR\" ]; then\n  IMPORTED=0\n  TOTAL=$(find \"$WORKFLOWS_DIR\" -name \"*.json\" 2>/dev/null | wc -l)\n  \n  echo \"📦 Encontrados $TOTAL workflows\"\n  \n  for file in \"$WORKFLOWS_DIR\"/*.json; do\n    if [ -f \"$file\" ]; then\n      WORKFLOW_NAME=$(basename \"$file\" .json)\n      \n      if n8n import:workflow --input=\"$file\" --separate 2>/dev/null; then\n        echo \"✅ Importado: $WORKFLOW_NAME\"\n        IMPORTED=$((IMPORTED + 1))\n      else\n        echo \"❌ Falha: $WORKFLOW_NAME\"\n      fi\n    fi\n  done\n  \n  echo \"\"\n  echo \"✅ Total importado: $IMPORTED/$TOTAL workflows\"\nelse\n  echo \"⚠️ Diretório de workflows não encontrado\"\nfi"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [600, 0],
+      "id": "import-workflows-1",
+      "name": "Importar Workflows"
+    },
+    {
+      "parameters": {
+        "command": "=# Importar credenciais\nBACKUP_DIR=\"/home/node/{{ $('Configurar Variáveis').item.json.repositorio }}\"\nCREDENTIALS_DIR=\"$BACKUP_DIR/credentials\"\n\nif [ -d \"$CREDENTIALS_DIR\" ]; then\n  IMPORTED=0\n  TOTAL=$(find \"$CREDENTIALS_DIR\" -name \"*.json\" 2>/dev/null | wc -l)\n  \n  echo \"🔑 Encontradas $TOTAL credenciais\"\n  \n  for file in \"$CREDENTIALS_DIR\"/*.json; do\n    if [ -f \"$file\" ]; then\n      CREDENTIAL_NAME=$(basename \"$file\" .json)\n      \n      if n8n import:credentials --input=\"$file\" --separate 2>/dev/null; then\n        echo \"✅ Importada: $CREDENTIAL_NAME\"\n        IMPORTED=$((IMPORTED + 1))\n      else\n        echo \"❌ Falha: $CREDENTIAL_NAME\"\n      fi\n    fi\n  done\n  \n  echo \"\"\n  echo \"✅ Total importado: $IMPORTED/$TOTAL credenciais\"\nelse\n  echo \"⚠️ Diretório de credenciais não encontrado\"\nfi"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [800, 0],
+      "id": "import-credentials-1",
+      "name": "Importar Credenciais"
+    },
+    {
+      "parameters": {
+        "command": "=# Limpar arquivos temporários\nrm -rf \"/home/node/{{ $('Configurar Variáveis').item.json.repositorio }}\"\n\necho \"🧹 Limpeza concluída\"\necho \"\"\necho \"✅ RESTAURAÇÃO CONCLUÍDA COM SUCESSO!\""
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1000, 0],
+      "id": "cleanup-1",
+      "name": "Limpar Temporários"
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{"node": "Configurar Variáveis", "type": "main", "index": 0}]]
+    },
+    "Configurar Variáveis": {
+      "main": [[{"node": "Clonar Repositório", "type": "main", "index": 0}]]
+    },
+    "Clonar Repositório": {
+      "main": [[{"node": "Importar Workflows", "type": "main", "index": 0}]]
+    },
+    "Importar Workflows": {
+      "main": [[{"node": "Importar Credenciais", "type": "main", "index": 0}]]
+    },
+    "Importar Credenciais": {
+      "main": [[{"node": "Limpar Temporários", "type": "main", "index": 0}]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "manual-restore-workflow"
+  },
+  "tags": [
+    {
+      "name": "Controle",
+      "createdAt": "2026-10-02T19:56:00.000Z",
+      "updatedAt": "2026-10-02T19:56:00.000Z",
+      "id": "tag-controle"
+    }
+  ]
+}

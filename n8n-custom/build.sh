@@ -35,7 +35,19 @@ chmod 755 "${DOCKERFILE_DIR}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [ "${SCRIPT_DIR}" != "${DOCKERFILE_DIR}" ]; then
     cp "${SCRIPT_DIR}/Dockerfile" "${DOCKERFILE_DIR}/Dockerfile"
-    echo -e "${GREEN}✔ Dockerfile copiado para ${DOCKERFILE_DIR}${RESET}"
+    cp "${SCRIPT_DIR}/docker-entrypoint.sh" "${DOCKERFILE_DIR}/docker-entrypoint.sh"
+    echo -e "${GREEN}✔ Dockerfile e scripts copiados para ${DOCKERFILE_DIR}${RESET}"
+fi
+
+# Copia o script de restauração do módulo n8n
+RESTORE_SCRIPT_SRC="${SCRIPT_DIR}/../modules/n8n/restore_n8n_backup.sh"
+RESTORE_SCRIPT_DST="${DOCKERFILE_DIR}/restore_n8n_backup.sh"
+if [ -f "${RESTORE_SCRIPT_SRC}" ]; then
+    cp "${RESTORE_SCRIPT_SRC}" "${RESTORE_SCRIPT_DST}"
+    chmod +x "${RESTORE_SCRIPT_DST}"
+    echo -e "${GREEN}✔ Script de restauração copiado${RESET}"
+else
+    echo -e "${YELLOW}⚠ Script de restauração não encontrado (restauração não estará disponível)${RESET}"
 fi
 
 # ----------------------------------------------------------------------------

@@ -1214,4 +1214,16 @@ O Hermes Gateway requer ao menos uma plataforma de mensagens configurada (Telegr
 ---
 <img width=200px height=200px src="img/5.PNG" alt="Bot logo"></a>
 
-**Versão**: 2.1.0 | **Atualizado**: Julho 2026 | **Novo**: Troubleshooting expandido (Open Design, Postiz, Hermes, Cloudflare)
+---
+
+## 📚 Documentação Adicional
+
+- **[Configuração do Chatwoot](docs/CHATWOOT-SETUP.md)** - Setup detalhado do Chatwoot
+- **[Configuração do Postiz](docs/POSTIZ-CONFIG.md)** - Configuração completa do Postiz
+- **[Restauração de Backup N8N](docs/N8N-RESTORE.md)** - ⭐ **NOVO!** Como restaurar workflows e credenciais do n8n automaticamente
+- **[Transferência de Arquivos Google Cloud](docs/tranferir-arquivos-googlecloud.md)** - Upload/download de arquivos GCP
+- **[Documentação Completa](docs/DOCUMENTATION.md)** - Documentação técnica detalhada
+
+---
+
+**Versão**: 2.1.0 | **Atualizado**: Outubro 2026 | **Novo**: Restauração automática de backup N8N, Troubleshooting expandido

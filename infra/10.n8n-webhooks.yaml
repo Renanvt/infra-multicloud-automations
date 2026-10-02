@@ -111,6 +111,8 @@ services:
       - N8N_COMMUNITY_PACKAGES_ENABLED=true
       # Reinstalar os Community Nodes
       - N8N_REINSTALL_MISSING_PACKAGES=true
+      # Habilita o nó Execute Command
+      - NODES_EXCLUDE="[n8n-nodes-base.localFileTrigger]"
       ################################################################
       # Acesso ao sistema de arquivos da VM (Read/Write Files node) ##
       ################################################################

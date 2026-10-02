@@ -6,6 +6,23 @@ setup_n8n_vars() {
     confirm_input "${CYAN}🌐 Domínio N8N Editor (ex: editor.meudominio.com): ${RESET}" "N8N Editor será:" N8N_EDITOR_DOMAIN
     confirm_input "${CYAN}🌐 Domínio N8N Webhook (ex: webhook.meudominio.com): ${RESET}" "N8N Webhook será:" N8N_WEBHOOK_DOMAIN
     confirm_input "${CYAN}🔑 Chave de Encriptação N8N: ${RESET}" "N8N Key:" N8N_ENCRYPTION_KEY
+    
+    # Perguntar sobre restauração de backup
+    echo ""
+    echo -e "${CYAN}📦 Deseja restaurar workflows/credenciais de um backup do GitHub?${RESET}"
+    read -p "Restaurar backup? (s/n): " RESTORE_CHOICE
+    
+    if [[ "$RESTORE_CHOICE" =~ ^[Ss]$ ]]; then
+        N8N_RESTORE_ENABLED="true"
+        confirm_input "${CYAN}📁 Nome do repositório GitHub (ex: infra-alobexpress-backup): ${RESET}" "Repositório:" N8N_BACKUP_REPO
+        confirm_input "${CYAN}👤 Username GitHub: ${RESET}" "Username:" N8N_BACKUP_USERNAME
+        confirm_input "${CYAN}🔑 Token de acesso GitHub (PAT): ${RESET}" "Token:" N8N_BACKUP_TOKEN
+    else
+        N8N_RESTORE_ENABLED="false"
+        N8N_BACKUP_REPO=""
+        N8N_BACKUP_USERNAME=""
+        N8N_BACKUP_TOKEN=""
+    fi
 }
 
 generate_n8n_yamls() {
@@ -23,6 +40,10 @@ AWS_BLOCK
 
     N8N_ENV_BLOCK=$(cat <<ENV_BLOCK
       - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - N8N_RESTORE_ENABLED=${N8N_RESTORE_ENABLED}
+      - N8N_BACKUP_REPO=${N8N_BACKUP_REPO}
+      - N8N_BACKUP_USERNAME=${N8N_BACKUP_USERNAME}
+      - N8N_BACKUP_TOKEN=${N8N_BACKUP_TOKEN}
 ${AWS_ENV}
       - NODE_ENV=production
       - N8N_PAYLOAD_SIZE_MAX=16

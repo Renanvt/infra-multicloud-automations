@@ -107,15 +107,12 @@ services:
       - NODE_FUNCTION_ALLOW_BUILTIN=child_process,fs
       # Configura as bibliotecas externas que serão utilizadas
       - NODE_FUNCTION_ALLOW_EXTERNAL=moment,lodash
-      # Habilita o uso de pacotes da comunidade
+      # Habilita pacotes da comunidade
       - N8N_COMMUNITY_PACKAGES_ENABLED=true
       # Reinstalar os Community Nodes
       - N8N_REINSTALL_MISSING_PACKAGES=true
-      ################################################################
-      # Acesso ao sistema de arquivos da VM (Read/Write Files node) ##
-      ################################################################
-      # Restringe o acesso do n8n à pasta /files (montada abaixo)
-      - N8N_RESTRICT_FILE_ACCESS_TO=/files
+      # Habilita o nó Execute Command
+      - NODES_EXCLUDE="[n8n-nodes-base.localFileTrigger]"
     # Monta a pasta da VM dentro do container como /files
     volumes:
       - /opt/infra/{nome-do-negocio}/n8n-local-files:/files
