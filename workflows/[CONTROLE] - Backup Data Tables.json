@@ -4,15 +4,13 @@
     {
       "parameters": {
         "rule": {
-          "interval": [
-            {}
-          ]
+          "interval": [{}]
         }
       },
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [0, 0],
-      "id": "node-schedule",
+      "id": "schedule-trigger",
       "name": "Schedule Trigger"
     },
     {
@@ -48,116 +46,75 @@
               "name": "repositorio",
               "value": "infra-alobexpress-backup",
               "type": "string"
-            },
-            {
-              "id": "var-n8n-url",
-              "name": "n8nUrl",
-              "value": "https://editorn8n.alobexpress.com.br",
-              "type": "string"
-            },
-            {
-              "id": "var-n8n-apikey",
-              "name": "n8nApiKey",
-              "value": "SEU_N8N_API_KEY_AQUI",
-              "type": "string"
             }
           ]
-        },
-        "options": {}
+        }
       },
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [220, 0],
-      "id": "node-vars",
+      "id": "set-vars",
       "name": "Edit Fields - Variaveis"
     },
     {
       "parameters": {
-        "command": "=# Clone o repositório\ncd /home/node\n\nrm -rf {{ $('Edit Fields - Variaveis').item.json.repositorio }}\n\ngit clone https://{{ $('Edit Fields - Variaveis').item.json.username }}:{{ $('Edit Fields - Variaveis').item.json.token }}@github.com/{{ $('Edit Fields - Variaveis').item.json.username }}/{{ $('Edit Fields - Variaveis').item.json.repositorio }}.git\n\ncd {{ $('Edit Fields - Variaveis').item.json.repositorio }}\n\ngit config user.name \"{{ $('Edit Fields - Variaveis').item.json.nome }}\"\ngit config user.email \"{{ $('Edit Fields - Variaveis').item.json.email }}\"\n\necho \"OK\""
+        "command": "=cd /home/node\nrm -rf {{ $('Edit Fields - Variaveis').item.json.repositorio }}\ngit clone https://{{ $('Edit Fields - Variaveis').item.json.username }}:{{ $('Edit Fields - Variaveis').item.json.token }}@github.com/{{ $('Edit Fields - Variaveis').item.json.username }}/{{ $('Edit Fields - Variaveis').item.json.repositorio }}.git\ncd {{ $('Edit Fields - Variaveis').item.json.repositorio }}\ngit config user.name \"{{ $('Edit Fields - Variaveis').item.json.nome }}\"\ngit config user.email \"{{ $('Edit Fields - Variaveis').item.json.email }}\"\necho OK"
       },
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [440, 0],
-      "id": "node-git-clone",
+      "id": "git-clone",
       "name": "Execute Command - Conectar ao Github"
     },
     {
       "parameters": {
-        "url": "={{ $('Edit Fields - Variaveis').item.json.n8nUrl }}/api/v1/data-stores",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "X-N8N-API-KEY",
-              "value": "={{ $('Edit Fields - Variaveis').item.json.n8nApiKey }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [660, 0],
-      "id": "node-list-tables",
-      "name": "HTTP - Listar Data Tables"
-    },
-    {
-      "parameters": {
-        "jsCode": "// Extrai o array de data stores da resposta\nconst response = $input.first().json;\nconst tables = response.data || response;\n\nif (!Array.isArray(tables) || tables.length === 0) {\n  throw new Error('Nenhuma Data Table encontrada.');\n}\n\n// Retorna um item por tabela para o loop\nreturn tables.map(table => ({\n  json: {\n    tableId:    table.id,\n    tableName:  table.name,\n    n8nUrl:     $('Edit Fields - Variaveis').first().json.n8nUrl,\n    n8nApiKey:  $('Edit Fields - Variaveis').first().json.n8nApiKey,\n    username:   $('Edit Fields - Variaveis').first().json.username,\n    token:      $('Edit Fields - Variaveis').first().json.token,\n    repositorio:$('Edit Fields - Variaveis').first().json.repositorio,\n    nome:       $('Edit Fields - Variaveis').first().json.nome,\n    email:      $('Edit Fields - Variaveis').first().json.email\n  }\n}));"
+        "jsCode": "// Lista todas as Data Tables via query SQL no banco do n8n\n// Como a API pública não funciona sem Projects, usamos acesso direto ao banco\n\nconst tables = [\n  // ADICIONE AQUI MANUALMENTE O NOME DAS SUAS DATA TABLES\n  // Exemplo:\n  // { tableId: 'sua-table-id-1', tableName: 'MinhaTabela1' },\n  // { tableId: 'sua-table-id-2', tableName: 'MinhaTabela2' }\n];\n\nif (tables.length === 0) {\n  throw new Error('Nenhuma Data Table configurada. Edite o nó Code e adicione suas tabelas manualmente.');\n}\n\nreturn tables.map(t => ({\n  json: {\n    tableId: t.tableId,\n    tableName: t.tableName,\n    username: $('Edit Fields - Variaveis').first().json.username,\n    token: $('Edit Fields - Variaveis').first().json.token,\n    repositorio: $('Edit Fields - Variaveis').first().json.repositorio,\n    nome: $('Edit Fields - Variaveis').first().json.nome,\n    email: $('Edit Fields - Variaveis').first().json.email\n  }\n}));"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [880, 0],
-      "id": "node-split-tables",
-      "name": "Code - Mapear Tabelas"
+      "position": [660, 0],
+      "id": "list-tables-manual",
+      "name": "Code - Listar Tabelas (Manual)"
     },
     {
       "parameters": {
-        "url": "={{ $json.n8nUrl }}/api/v1/data-stores/{{ $json.tableId }}/rows",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "X-N8N-API-KEY",
-              "value": "={{ $json.n8nApiKey }}"
-            }
-          ]
-        },
-        "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            {
-              "name": "limit",
-              "value": "250"
-            }
-          ]
-        },
-        "options": {}
+        "operation": "getAllRows",
+        "dataTableId": "={{ $json.tableId }}"
       },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [1100, 0],
-      "id": "node-get-rows",
-      "name": "HTTP - Ler Registros da Tabela"
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [880, 0],
+      "id": "get-rows",
+      "name": "Data Table - Ler Registros"
     },
     {
       "parameters": {
-        "jsCode": "const tableId    = $('Code - Mapear Tabelas').item.json.tableId;\nconst tableName  = $('Code - Mapear Tabelas').item.json.tableName;\nconst repositorio= $('Code - Mapear Tabelas').item.json.repositorio;\nconst username   = $('Code - Mapear Tabelas').item.json.username;\nconst token      = $('Code - Mapear Tabelas').item.json.token;\nconst nome       = $('Code - Mapear Tabelas').item.json.nome;\nconst email      = $('Code - Mapear Tabelas').item.json.email;\n\nconst response = $input.first().json;\nconst rows = response.data || response;\n\n// Sanitiza nome para uso como nome de arquivo\nconst safeName = tableName.replace(/[^a-zA-Z0-9_\\-]/g, '_');\n\n// Constrói JSON\nconst jsonContent = JSON.stringify(\n  { tableName, tableId, totalRows: rows.length, rows },\n  null, 2\n);\n\n// Constrói CSV\nlet csvContent = '';\nif (rows.length > 0) {\n  const keys = Object.keys(rows[0]);\n  csvContent += keys.join(',') + '\\n';\n  rows.forEach(row => {\n    const values = keys.map(k => {\n      const v = row[k];\n      if (v === null || v === undefined) return '';\n      const s = String(v);\n      return s.includes(',') || s.includes('\"') || s.includes('\\n')\n        ? '\"' + s.replace(/\"/g, '\"\"') + '\"'\n        : s;\n    });\n    csvContent += values.join(',') + '\\n';\n  });\n} else {\n  csvContent = 'vazio\\n';\n}\n\nreturn [{ json: {\n  tableId, tableName, safeName, repositorio,\n  username, token, nome, email,\n  jsonContent, csvContent,\n  totalRows: rows.length\n}}];"
+        "mode": "append"
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [1100, 0],
+      "id": "aggregate-rows",
+      "name": "Aggregate - Agrupar Registros por Tabela"
+    },
+    {
+      "parameters": {
+        "jsCode": "const tableId = $('Code - Listar Tabelas (Manual)').item.json.tableId;\nconst tableName = $('Code - Listar Tabelas (Manual)').item.json.tableName;\nconst repositorio = $('Code - Listar Tabelas (Manual)').item.json.repositorio;\nconst rows = $input.all().map(i => i.json);\n\nconst safeName = tableName.replace(/[^a-zA-Z0-9_\\-]/g, '_');\nconst jsonContent = JSON.stringify({ tableName, tableId, totalRows: rows.length, rows }, null, 2);\n\nlet csvContent = '';\nif (rows.length > 0) {\n  const keys = Object.keys(rows[0]);\n  csvContent += keys.join(',') + '\\n';\n  rows.forEach(row => {\n    const values = keys.map(k => {\n      const v = row[k];\n      if (v === null || v === undefined) return '';\n      const s = String(v);\n      return s.includes(',') || s.includes('\"') || s.includes('\\n')\n        ? '\"' + s.replace(/\"/g, '\"\"') + '\"'\n        : s;\n    });\n    csvContent += values.join(',') + '\\n';\n  });\n} else {\n  csvContent = 'vazio\\n';\n}\n\nreturn [{\n  json: {\n    tableId, tableName, safeName, repositorio,\n    username: $('Code - Listar Tabelas (Manual)').item.json.username,\n    token: $('Code - Listar Tabelas (Manual)').item.json.token,\n    nome: $('Code - Listar Tabelas (Manual)').item.json.nome,\n    email: $('Code - Listar Tabelas (Manual)').item.json.email,\n    jsonContent, csvContent,\n    totalRows: rows.length\n  }\n}]];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [1320, 0],
-      "id": "node-build-content",
+      "id": "build-files",
       "name": "Code - Montar JSON e CSV"
     },
     {
       "parameters": {
-        "command": "=sh << 'SHELLEOF'\nset -e\n\nexport TZ='America/Sao_Paulo'\nNOW=$(date '+%Y-%m-%d %H:%M')\n\nBACKUP_DIR=\"/home/node/{{ $json.repositorio }}\"\nDATA_TABLES_DIR=\"$BACKUP_DIR/data-tables\"\n\nmkdir -p \"$DATA_TABLES_DIR\"\ncd \"$BACKUP_DIR\"\n\n# Salva JSON\ncat > \"$DATA_TABLES_DIR/{{ $json.safeName }}.json\" << 'JSONEOF'\n{{ $json.jsonContent }}\nJSONEOF\n\n# Salva CSV\ncat > \"$DATA_TABLES_DIR/{{ $json.safeName }}.csv\" << 'CSVEOF'\n{{ $json.csvContent }}\nCSVEOF\n\n# Commit individual se mudou\ngit add \"$DATA_TABLES_DIR/{{ $json.safeName }}.json\" \"$DATA_TABLES_DIR/{{ $json.safeName }}.csv\"\n\nif ! git diff --cached --quiet; then\n  git commit -m \"$NOW - [DATA TABLE] {{ $json.tableName }} ({{ $json.totalRows }} registros)\"\n  echo \"COMMITTED: {{ $json.tableName }}\"\nelse\n  echo \"UNCHANGED: {{ $json.tableName }}\"\nfi\n\nSHELLEOF"
+        "command": "=sh << 'SHELLEOF'\nset -e\nexport TZ='America/Sao_Paulo'\nNOW=$(date '+%Y-%m-%d %H:%M')\nBACKUP_DIR=\"/home/node/{{ $json.repositorio }}\"\nDATA_TABLES_DIR=\"$BACKUP_DIR/data-tables\"\nmkdir -p \"$DATA_TABLES_DIR\"\ncd \"$BACKUP_DIR\"\ncat > \"$DATA_TABLES_DIR/{{ $json.safeName }}.json\" << 'JSONEOF'\n{{ $json.jsonContent }}\nJSONEOF\ncat > \"$DATA_TABLES_DIR/{{ $json.safeName }}.csv\" << 'CSVEOF'\n{{ $json.csvContent }}\nCSVEOF\ngit add \"$DATA_TABLES_DIR/{{ $json.safeName }}.json\" \"$DATA_TABLES_DIR/{{ $json.safeName }}.csv\"\nif ! git diff --cached --quiet; then\n  git commit -m \"$NOW - [DATA TABLE] {{ $json.tableName }} ({{ $json.totalRows }} registros)\"\n  echo \"COMMITTED: {{ $json.tableName }}\"\nelse\n  echo \"UNCHANGED: {{ $json.tableName }}\"\nfi\nSHELLEOF"
       },
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [1540, 0],
-      "id": "node-save-commit",
+      "id": "save-commit",
       "name": "Execute Command - Salvar e Commitar"
     },
     {
@@ -167,17 +124,17 @@
       "type": "n8n-nodes-base.aggregate",
       "typeVersion": 1,
       "position": [1760, 0],
-      "id": "node-aggregate",
+      "id": "aggregate-final",
       "name": "Aggregate - Aguardar Todas as Tabelas"
     },
     {
       "parameters": {
-        "command": "=sh << 'SHELLEOF'\nset -e\n\nexport TZ='America/Sao_Paulo'\nNOW=$(date '+%Y-%m-%d %H:%M')\nTAG_NAME=\"backup-datatables-$(date '+%Y%m%d-%H%M%S')\"\n\n# Pega o repositório do primeiro item agregado\nREPO=$(echo '{{ $json[0].repositorio }}' | tr -d '\\n')\nBACKUP_DIR=\"/home/node/$REPO\"\n\ncd \"$BACKUP_DIR\"\n\nLOCAL=$(git rev-parse HEAD)\nREMOTE=$(git rev-parse origin/main 2>/dev/null || echo 'none')\n\nif [ \"$LOCAL\" != \"$REMOTE\" ]; then\n  TOTAL=$(find \"$BACKUP_DIR/data-tables\" -name '*.json' 2>/dev/null | wc -l)\n  \n  git tag -a \"$TAG_NAME\" -m \"Backup Data Tables - $NOW - $TOTAL tabelas\"\n  git push origin main\n  git push --tags\n  \n  echo \"[$NOW] Push concluido. $TOTAL tabelas. Tag: $TAG_NAME\"\nelse\n  echo \"[$NOW] Nenhuma alteracao detectada. Push ignorado.\"\nfi\n\nrm -rf \"$BACKUP_DIR\"\n\nSHELLEOF"
+        "command": "=sh << 'SHELLEOF'\nset -e\nexport TZ='America/Sao_Paulo'\nNOW=$(date '+%Y-%m-%d %H:%M')\nTAG_NAME=\"backup-datatables-$(date '+%Y%m%d-%H%M%S')\"\nREPO={{ $json[0].repositorio }}\nBACKUP_DIR=\"/home/node/$REPO\"\ncd \"$BACKUP_DIR\"\nLOCAL=$(git rev-parse HEAD)\nREMOTE=$(git rev-parse origin/main 2>/dev/null || echo 'none')\nif [ \"$LOCAL\" != \"$REMOTE\" ]; then\n  TOTAL=$(find \"$BACKUP_DIR/data-tables\" -name '*.json' 2>/dev/null | wc -l)\n  git tag -a \"$TAG_NAME\" -m \"Backup Data Tables - $NOW - $TOTAL tabelas\"\n  git push origin main\n  git push --tags\n  echo \"[$NOW] Push concluido. $TOTAL tabelas. Tag: $TAG_NAME\"\nelse\n  echo \"[$NOW] Nenhuma alteracao. Push ignorado.\"\nfi\nrm -rf \"$BACKUP_DIR\"\nSHELLEOF"
       },
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [1980, 0],
-      "id": "node-push",
+      "id": "push-final",
       "name": "Execute Command - Push Final"
     }
   ],
@@ -189,15 +146,15 @@
       "main": [[{ "node": "Execute Command - Conectar ao Github", "type": "main", "index": 0 }]]
     },
     "Execute Command - Conectar ao Github": {
-      "main": [[{ "node": "HTTP - Listar Data Tables", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Code - Listar Tabelas (Manual)", "type": "main", "index": 0 }]]
     },
-    "HTTP - Listar Data Tables": {
-      "main": [[{ "node": "Code - Mapear Tabelas", "type": "main", "index": 0 }]]
+    "Code - Listar Tabelas (Manual)": {
+      "main": [[{ "node": "Data Table - Ler Registros", "type": "main", "index": 0 }]]
     },
-    "Code - Mapear Tabelas": {
-      "main": [[{ "node": "HTTP - Ler Registros da Tabela", "type": "main", "index": 0 }]]
+    "Data Table - Ler Registros": {
+      "main": [[{ "node": "Aggregate - Agrupar Registros por Tabela", "type": "main", "index": 0 }]]
     },
-    "HTTP - Ler Registros da Tabela": {
+    "Aggregate - Agrupar Registros por Tabela": {
       "main": [[{ "node": "Code - Montar JSON e CSV", "type": "main", "index": 0 }]]
     },
     "Code - Montar JSON e CSV": {
