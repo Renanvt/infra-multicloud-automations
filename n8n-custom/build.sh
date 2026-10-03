@@ -6,7 +6,7 @@
 
 set -e
 
-N8N_VERSION="2.0.2"
+N8N_VERSION="2.40.0"
 IMAGE_NAME="alobexpress/n8n-custom"
 IMAGE_TAG="${IMAGE_NAME}:${N8N_VERSION}"
 DOCKERFILE_DIR="/opt/alobexpress/n8n-custom"
