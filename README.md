@@ -1227,3 +1227,92 @@ O Hermes Gateway requer ao menos uma plataforma de mensagens configurada (Telegr
 ---
 
 **Versão**: 2.1.0 | **Atualizado**: Outubro 2026 | **Novo**: Restauração automática de backup N8N, Troubleshooting expandido
+
+
+---
+
+## 🔄 Migração de Workflows ao Atualizar o n8n
+
+### ⚠️ Problema Comum Após Atualização
+
+Quando você atualiza o n8n de uma versão antiga (ex: 2.0.2) para uma versão nova (ex: 2.40.0), alguns workflows antigos podem apresentar **ícones de interrogação (?)** em alguns nós. Isso acontece porque:
+
+- Alguns nós foram renomeados ou tiveram sua estrutura interna alterada
+- Os `typeVersion` dos nós ficaram desatualizados
+- Nós LangChain (AI Agent, OpenAI, Google Gemini) são os mais afetados
+
+### ✅ Solução: Recriar Nós Problemáticos
+
+**Passo a Passo:**
+
+1. **Identifique os nós com ?** no editor do n8n
+2. **Para cada nó com ?:**
+   - Tire um print ou anote as configurações (credenciais, prompts, parâmetros)
+   - **Delete o nó**
+   - **Adicione um novo nó do mesmo tipo** (use a busca do n8n)
+   - Reconfigure com os mesmos valores
+   - Reconecte aos nós anterior e posterior
+
+3. **Salve e exporte o workflow atualizado**
+
+### 📦 Workflows Mais Afetados
+
+- Workflows com **AI Agent** (LangChain)
+- Workflows com **OpenAI Chat Model**
+- Workflows com **Google Gemini Chat Model**
+- Workflows com nós antigos do **Telegram** ou **HTTP Request**
+
+### 💡 Dica: Backup Antes de Atualizar
+
+Sempre faça backup dos workflows antes de atualizar o n8n:
+
+```bash
+# Backup via workflow automático (recomendado)
+# Importe e execute: workflows/[CONTROLE] - Backup.json
+
+# Ou backup manual do banco Postgres
+./backup_to_s3.sh
+```
+
+### 🚀 Evitando Problemas Futuros
+
+1. **Sempre exporte workflows atualizados** para o repositório GitHub
+2. **Use o workflow de backup automático** (`[CONTROLE] - Backup.json` e `[CONTROLE] - Backup Data Tables.json`)
+3. **Teste workflows críticos** após cada atualização do n8n
+4. **Mantenha o Dockerfile atualizado** com a versão do n8n que funciona
+
+### 📄 Referência de Versões
+
+| Versão n8n | Dockerfile | Status |
+|------------|------------|--------|
+| 2.0.2 | `FROM n8nio/n8n:2.0.2-alpine` | ❌ Antiga |
+| 2.40.0 | `FROM n8nio/n8n:2.40.0-alpine` | ✅ Atual (2026) |
+
+---
+
+
+## 📦 Community Nodes do n8n
+
+### Nós Necessários para os Workflows
+
+Alguns workflows precisam de **community nodes** que devem ser instalados manualmente:
+
+| Pacote | Descrição | Usado Em |
+|--------|-----------|----------|
+| `@megatank58/n8n-nodes-evolution-api` | Integration com Evolution API v2 | Workflows de WhatsApp |
+
+### Como Instalar
+
+**Via UI do n8n (Recomendado):**
+1. Vá em **Settings** → **Community Nodes**
+2. Clique em **"Install"**
+3. Digite o nome do pacote (ex: `@megatank58/n8n-nodes-evolution-api`)
+4. Marque o checkbox "I understand the risks..."
+5. Clique em **"Install"**
+6. Aguarde 1-2 minutos e recarregue a página
+
+### ✅ Backup Automático
+
+Os community nodes instalados são **salvos automaticamente** quando você faz backup do Postgres. Ao restaurar o backup em uma nova VM, os nodes voltam automaticamente!
+
+---

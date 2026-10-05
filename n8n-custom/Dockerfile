@@ -1,4 +1,4 @@
-FROM n8nio/n8n:2.40.0 AS base
+FROM n8nio/n8n:1.100.0 AS base
 
 # Instala ferramentas extras a partir do Alpine (a imagem base do n8n remove o apk)
 FROM alpine:3.21 AS tools
